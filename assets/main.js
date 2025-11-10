@@ -34,9 +34,7 @@ var fields = [],
     pendingDataset = null,
     originalData = null,
     isInitialized = false,
-    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID),
-    suppressHashUpdate = false,
-    ignoreNextHashChange = false;
+    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID);
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -221,13 +219,6 @@ var proj = d3.geoMercator()
         return field && field.key ? +d.properties[field.key] : 1;
       });
 
-window.onhashchange = function() {
-  if (ignoreNextHashChange) {
-    return;
-  }
-  parseHash();
-};
-
 d3.json("data/japan.topojson", function(topo) {
   topology = topo;
   geometries = topology.objects.japan.geometries;
@@ -261,7 +252,7 @@ function init() {
 
   states.append("title");
 
-  parseHash();
+  updateFieldSelection();
   isInitialized = true;
 }
 
@@ -389,9 +380,6 @@ function updateFieldSelection() {
     deferredUpdate();
   }
 
-  if (!suppressHashUpdate) {
-    updateHash();
-  }
 }
 
 function loadDataset(data, options) {
@@ -906,72 +894,6 @@ function resetMapVisualState() {
   reset();
 }
 
-function parseHash() {
-  if (!fields || !fields.length) {
-    return;
-  }
-
-  var hash = window.location.hash ? window.location.hash.replace(/^#/, "") : "";
-  var params = parseHashParams(hash);
-  var nextFieldId = params.field || params.f || null;
-  var nextField = nextFieldId ? fieldsById.get(nextFieldId) : null;
-
-  if (nextField) {
-    field = nextField;
-  }
-
-  suppressHashUpdate = true;
-  updateFieldSelection();
-  suppressHashUpdate = false;
-}
-
-function updateHash() {
-  var nextHash = "";
-  if (field && field.id && field.id !== "none") {
-    nextHash = "field=" + encodeURIComponent(field.id);
-  }
-  var formattedHash = nextHash ? "#" + nextHash : "";
-
-  if (formattedHash === window.location.hash) {
-    return;
-  }
-
-  ignoreNextHashChange = true;
-
-  if (nextHash) {
-    window.location.hash = nextHash;
-  } else if (history && history.replaceState) {
-    history.replaceState(null, document.title, window.location.pathname + window.location.search);
-  } else {
-    window.location.hash = "";
-  }
-
-  setTimeout(function() {
-    ignoreNextHashChange = false;
-  }, 0);
-}
-
-function parseHashParams(hash) {
-  if (!hash) {
-    return {};
-  }
-  return hash.split("&").reduce(function(result, part) {
-    if (!part) {
-      return result;
-    }
-    var eqIndex = part.indexOf("=");
-    var key = eqIndex === -1 ? part : part.slice(0, eqIndex);
-    var value = eqIndex === -1 ? "" : part.slice(eqIndex + 1);
-    try {
-      key = decodeURIComponent(key);
-      value = decodeURIComponent(value);
-    } catch (e) {
-      // ignore decode errors, keep raw strings
-    }
-    result[key] = value;
-    return result;
-  }, {});
-}
 
 function renderLegend(colorScale, minValue, maxValue) {
   if (!legendGroup || typeof d3.legendColor !== "function" || !colorScale) {
