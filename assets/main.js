@@ -706,6 +706,7 @@ function applyPendingData() {
     preserveField: false,
     defaultToNone: true
   });
+  resetMapVisualState();
 
   setUploadStatus("「" + datasetLabel + "」を適用しました。", "success");
 
@@ -729,6 +730,7 @@ function resetToSampleData() {
     defaultToNone: true,
     preserveField: false
   });
+  resetMapVisualState();
   clearPreview();
   previewTable.html("<p class='text-muted'>サンプルデータを表示しています。CSV をアップロードするとここにプレビューが表示されます。</p>");
   setUploadStatus("サンプルデータに戻しました。", "info");
@@ -895,6 +897,13 @@ function setButtonLoading(buttonSelection, isLoading) {
   buttonSelection
     .classed("is-loading", isLoading)
     .property("disabled", isLoading);
+}
+
+function resetMapVisualState() {
+  if (!isInitialized) {
+    return;
+  }
+  reset();
 }
 
 function parseHash() {
