@@ -42,6 +42,7 @@ var body = d3.select("body"),
 var fileInput = d3.select("#file-input"),
     dropzone = d3.select("#dropzone"),
     uploadStatus = d3.select("#upload-status"),
+    preview = d3.select("#preview"),
     previewTable = d3.select("#preview-table"),
     previewStats = d3.select("#preview-stats"),
     applyButton = d3.select("#apply-data"),
@@ -529,6 +530,7 @@ function preparePreview(data, filename) {
     numericColumns: validation.numericColumns
   };
 
+  preview.classed("is-hidden", false);
   renderPreviewTable(data);
   renderPreviewStats(data, validation.numericColumns);
   setUploadStatus("「" + label + "」を読み込みました。プレビューを確認して適用してください。", "success");
@@ -560,6 +562,7 @@ function validateDataset(data) {
 
 function clearPreview() {
   pendingDataset = null;
+  preview.classed("is-hidden", true);
   previewTable.html("<p class='text-muted'>CSV をアップロードするとここにプレビューが表示されます。</p>");
   previewStats.html("");
   applyButton
