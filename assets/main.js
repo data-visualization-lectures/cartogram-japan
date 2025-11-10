@@ -34,7 +34,8 @@ var fields = [],
     pendingDataset = null,
     originalData = null,
     isInitialized = false,
-    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID);
+    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID),
+    currentLegendCells = 5;
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -52,7 +53,8 @@ var fileInput = d3.select("#file-input"),
     toggleCurrentPreviewButton = d3.select("#toggle-current-preview"),
     downloadSvgButton = d3.select("#download-svg-btn"),
     downloadPngButton = d3.select("#download-png-btn"),
-    colorSchemeSelect = d3.select("#color-scheme");
+    colorSchemeSelect = d3.select("#color-scheme"),
+    legendCellsSelect = d3.select("#legend-cells");
 
 var applyButtonDefaultText = applyButton.text(),
     applyButtonAppliedText = "適用済み";
@@ -138,6 +140,13 @@ if (!currentColorScheme) {
 }
 
 initializeColorSchemeOptions();
+
+legendCellsSelect.on("change", function() {
+  currentLegendCells = +this.value;
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
+});
 
 applyButton.property("disabled", true);
 applyButton.text(applyButtonDefaultText);
@@ -377,6 +386,7 @@ function updateFieldSelection() {
 
   var isNoField = field.id === "none";
   colorSchemeSelect.property("disabled", isNoField);
+  legendCellsSelect.property("disabled", isNoField);
 
   if (isNoField) {
     reset();
@@ -907,7 +917,7 @@ function renderLegend(colorScale, minValue, maxValue) {
   }
 
   var legendFieldName = (field && field.name && field.id !== "none") ? field.name : "値";
-  var formatValue = d3.format(",");
+  var formatValue = d3.format(",.0f");
 
   legendGroup.selectAll("*").remove();
 
@@ -928,7 +938,7 @@ function renderLegend(colorScale, minValue, maxValue) {
     .shapeHeight(12)
     .labelFormat(formatValue)
     .orient("horizontal")
-    .cells(6)
+    .cells(currentLegendCells)
     .scale(colorScale);
 
   var legendScaleGroup = legendContent.append("g")
@@ -973,6 +983,16 @@ function renderLegend(colorScale, minValue, maxValue) {
     .attr("ry", 12)
     .attr("fill", "rgba(255, 255, 255, 0.9)")
     .attr("stroke", "#dfe5ef");
+
+  // 凡例全体を右下から一定距離に配置
+  var viewBoxWidth = 800;
+  var viewBoxHeight = 800;
+  var rightBottomOffset = 20;
+  var legendWidth = bbox.width + padding * 2;
+  var legendHeight = bbox.height + padding * 2;
+  var x = viewBoxWidth - rightBottomOffset - legendWidth;
+  var y = viewBoxHeight - rightBottomOffset - legendHeight;
+  legendGroup.attr("transform", "translate(" + x + "," + y + ")");
 }
 
 function clearLegend() {
