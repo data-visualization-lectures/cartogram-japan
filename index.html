@@ -4,27 +4,111 @@
     <title>日本地図カルトグラム</title>
     <meta charset="utf-8">
     <meta property="og:image" content="placeholder.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/style.css">
   </head>
   <body>
-    <div id="container">
-      <h1>日本地図カルトグラム</h1>
-      <form>
+    <main class="page container-fluid">
+      <section class="card hero-card">
+        <h1>日本地図カルトグラム</h1>
         <p>
-          <label>データ項目 <select id="field"></select></label>
-          <span id="status"></span>
+          都道府県別データを CSV でアップロードして、面積をデータ値に比例させたカルトグラムをブラウザだけで生成できます。
         </p>
-      </form>
-      <div id="map-container">
-        <img id="placeholder" alt="placeholder image for old browsers" src="assets/placeholder.png">
-        <svg id="map"></svg>
+      </section>
+
+      <div class="layout">
+        <section class="card data-panel">
+          <div class="panel-header">
+            <h2>データ管理</h2>
+            <p>
+              CSV の「都道府県」列をキーとして利用し、他の列を指標として利用します。アップロード後に内容を確認してからマップに適用できます。
+            </p>
+          </div>
+
+          <div class="field-group">
+            <h3>現在の適用データ</h3>
+            <div class="current-status">
+              <span class="status-label">状態</span>
+              <span class="status-value" id="current-data-label">サンプルデータ</span>
+            </div>
+            <button class="btn btn-tertiary" id="toggle-current-preview" type="button">
+              表データを隠す
+            </button>
+            <div id="current-data-preview" class="data-preview"></div>
+          </div>
+
+          <ul class="nav nav-tabs nav-fill data-tabs" id="data-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="sample-tab" data-bs-toggle="pill" data-bs-target="#sample-pane" type="button" role="tab" aria-controls="sample-pane" aria-selected="true">サンプル</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="upload-tab" data-bs-toggle="pill" data-bs-target="#upload-pane" type="button" role="tab" aria-controls="upload-pane" aria-selected="false">オリジナル</button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="data-tab-content">
+            <div class="tab-pane fade show active" id="sample-pane" role="tabpanel" aria-labelledby="sample-tab">
+            <div class="field-group">
+              <h3>サンプルデータ</h3>
+              <p class="info-note">
+                初期表示ではサンプルデータ（SSDSE-C の米／食パン支出）を読み込んでいます。
+              </p>
+              <div class="button-row wrap">
+                <a class="btn btn-secondary" id="download-sample" href="data/theme.csv" download>ダウンロード</a>
+                <button class="btn btn-tertiary" id="reset-data" type="button">サンプルに戻す</button>
+              </div>
+            </div>
+            </div>
+
+            <div class="tab-pane fade" id="upload-pane" role="tabpanel" aria-labelledby="upload-tab">
+              <div class="field-group">
+                <h3>データアップロード</h3>
+                <div id="dropzone" class="upload-area">
+                  <p class="title">CSV をドラッグ＆ドロップ</p>
+                  <p>または</p>
+                  <label class="file-input-label btn btn-secondary">
+                    <input type="file" id="file-input" accept=".csv,text/csv">
+                    ファイルを選択
+                  </label>
+                </div>
+                <p id="upload-status" class="help-text"></p>
+              </div>
+
+              <div id="preview" class="field-group">
+                <div class="section-header">
+                  <h3>アップロードプレビュー</h3>
+                </div>
+                <div id="preview-table" class="table-container"></div>
+                <div id="preview-stats" class="preview-stats"></div>
+                <button class="btn btn-primary full-width" id="apply-data" type="button" disabled>
+                  このデータを適用
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card map-card" id="map-card">
+          <div class="map-card-header">
+            <div class="map-heading">
+              <h2>地図プレビュー</h2>
+              <span id="status" class="status-pill"></span>
+            </div>
+            <div class="map-select">
+              <select id="field"></select>
+            </div>
+          </div>
+          <div id="map-container" class="map-frame">
+            <svg id="map" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div class="button-row stretch download-row">
+            <button class="btn btn-secondary" id="download-svg-btn" type="button">SVGダウンロード</button>
+            <button class="btn btn-secondary" id="download-png-btn" type="button">PNGダウンロード</button>
+          </div>
+        </section>
       </div>
-      <div id="about">
-        <p>この日本のカルトグラムは、各都道府県の食材支出（米と食パン）に基づいて地図の面積を変形させています。
-        政府統計の社会・人口統計体系（SSDSE-C-2025）の食料品支出データを使用し、各都道府県の支出額に比例してその面積が表示されます。</p>
-        <p>データ項目を選択すると、選択した項目の年間支出額に応じて各都道府県の形状が変化します。</p>
-      </div>
-    </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="http://d3js.org/d3.v4.js"></script>
     <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
     <script src="https://d3js.org/topojson.v2.min.js"></script>
