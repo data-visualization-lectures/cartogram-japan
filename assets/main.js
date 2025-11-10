@@ -374,7 +374,10 @@ function updateFieldSelection() {
     fieldSelect.property("selectedIndex", Math.max(fields.indexOf(field), 0));
   }
 
-  if (field.id === "none") {
+  var isNoField = field.id === "none";
+  colorSchemeSelect.property("disabled", isNoField);
+
+  if (isNoField) {
     reset();
   } else {
     deferredUpdate();

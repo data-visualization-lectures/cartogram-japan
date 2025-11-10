@@ -389,6 +389,12 @@ body {
   height: 2.1rem;
 }
 
+.map-select select:disabled {
+  opacity: 0.5;
+  background-color: #f9f9f9;
+  cursor: not-allowed;
+}
+
 .map-frame {
   position: relative;
   width: 100%;
