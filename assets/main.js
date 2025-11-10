@@ -34,7 +34,9 @@ var fields = [],
     pendingDataset = null,
     originalData = null,
     isInitialized = false,
-    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID);
+    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID),
+    suppressHashUpdate = false,
+    ignoreNextHashChange = false;
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -197,7 +199,10 @@ var map = d3.select("#map"),
           .attr("id", "layer"),
     states = layer.append("g")
       .attr("id", "states")
-      .selectAll("path");
+      .selectAll("path"),
+    legendGroup = map.append("g")
+      .attr("id", "legend")
+      .attr("transform", "translate(520, 660)");
 
 
 var proj = d3.geoMercator()
@@ -217,6 +222,9 @@ var proj = d3.geoMercator()
       });
 
 window.onhashchange = function() {
+  if (ignoreNextHashChange) {
+    return;
+  }
   parseHash();
 };
 
@@ -261,6 +269,7 @@ function reset() {
   stat.text("");
   stat.classed("empty", true);
   body.classed("updating", false);
+  clearLegend();
 
   var features = carto.features(topology, geometries),
       path = d3.geoPath()
@@ -344,6 +353,8 @@ function update() {
       return isNaN(colorValue) ? "#f0f0f0" : color(colorValue);
     })
     .attr("d", carto.path);
+  
+  renderLegend(color, lo, hi);
 
   var delta = (Date.now() - start) / 1000;
   stat.text(["calculated in", delta.toFixed(1), "seconds"].join(" "));
@@ -376,6 +387,10 @@ function updateFieldSelection() {
     reset();
   } else {
     deferredUpdate();
+  }
+
+  if (!suppressHashUpdate) {
+    updateHash();
   }
 }
 
@@ -793,7 +808,10 @@ function serializeSvg(svgNode) {
 
   var style = document.createElement("style");
   style.setAttribute("type", "text/css");
-  style.textContent = "path.state{stroke:#666;stroke-width:.5;}";
+  style.textContent = ""
+    + "path.state{stroke:#666;stroke-width:.5;}"
+    + "#legend .legend-title{font-size:12px;font-weight:600;fill:#0f172a;}"
+    + "#legend text{font-size:11px;fill:#5f6c80;}";
   clone.insertBefore(style, clone.firstChild);
 
   var background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -877,6 +895,153 @@ function setButtonLoading(buttonSelection, isLoading) {
   buttonSelection
     .classed("is-loading", isLoading)
     .property("disabled", isLoading);
+}
+
+function parseHash() {
+  if (!fields || !fields.length) {
+    return;
+  }
+
+  var hash = window.location.hash ? window.location.hash.replace(/^#/, "") : "";
+  var params = parseHashParams(hash);
+  var nextFieldId = params.field || params.f || null;
+  var nextField = nextFieldId ? fieldsById.get(nextFieldId) : null;
+
+  if (nextField) {
+    field = nextField;
+  }
+
+  suppressHashUpdate = true;
+  updateFieldSelection();
+  suppressHashUpdate = false;
+}
+
+function updateHash() {
+  var nextHash = "";
+  if (field && field.id && field.id !== "none") {
+    nextHash = "field=" + encodeURIComponent(field.id);
+  }
+  var formattedHash = nextHash ? "#" + nextHash : "";
+
+  if (formattedHash === window.location.hash) {
+    return;
+  }
+
+  ignoreNextHashChange = true;
+
+  if (nextHash) {
+    window.location.hash = nextHash;
+  } else if (history && history.replaceState) {
+    history.replaceState(null, document.title, window.location.pathname + window.location.search);
+  } else {
+    window.location.hash = "";
+  }
+
+  setTimeout(function() {
+    ignoreNextHashChange = false;
+  }, 0);
+}
+
+function parseHashParams(hash) {
+  if (!hash) {
+    return {};
+  }
+  return hash.split("&").reduce(function(result, part) {
+    if (!part) {
+      return result;
+    }
+    var eqIndex = part.indexOf("=");
+    var key = eqIndex === -1 ? part : part.slice(0, eqIndex);
+    var value = eqIndex === -1 ? "" : part.slice(eqIndex + 1);
+    try {
+      key = decodeURIComponent(key);
+      value = decodeURIComponent(value);
+    } catch (e) {
+      // ignore decode errors, keep raw strings
+    }
+    result[key] = value;
+    return result;
+  }, {});
+}
+
+function renderLegend(colorScale, minValue, maxValue) {
+  if (!legendGroup || typeof d3.legendColor !== "function" || !colorScale) {
+    return;
+  }
+
+  var legendFieldName = (field && field.name && field.id !== "none") ? field.name : "値";
+  var formatValue = d3.format(",");
+
+  legendGroup.selectAll("*").remove();
+
+  var legendContent = legendGroup.append("g")
+    .attr("class", "legend-content");
+
+  legendContent.append("text")
+    .attr("class", "legend-title")
+    .attr("x", 0)
+    .attr("y", 0)
+    .text(legendFieldName + "（" + formatValue(minValue) + " ～ " + formatValue(maxValue) + "）");
+
+  var barOffsetTop = 20;
+  var labelOffset = 18;
+  var labelBaseY = barOffsetTop + labelOffset;
+  var legend = d3.legendColor()
+    .shapeWidth(36)
+    .shapeHeight(12)
+    .labelFormat(formatValue)
+    .orient("horizontal")
+    .cells(6)
+    .scale(colorScale);
+
+  var legendScaleGroup = legendContent.append("g")
+    .attr("class", "legend-scale")
+    .attr("transform", "translate(0," + barOffsetTop + ")")
+    .call(legend);
+  
+  legendScaleGroup.selectAll("rect.swatch")
+    .attr("stroke", "#cccccc")
+    .attr("stroke-width", 1)
+    .attr("shape-rendering", "crispEdges");
+  
+  var labelRotation = -40;
+  var labelXOffset = 4;
+  legendContent.selectAll(".legend-scale text")
+    .filter(function() {
+      return !d3.select(this).classed("legend-title");
+    })
+    .attr("text-anchor", "end")
+    .attr("y", labelBaseY)
+    .each(function() {
+      var text = d3.select(this);
+      var currentX = +text.attr("x") || 0;
+      var shiftedX = currentX + labelXOffset;
+      text
+        .attr("x", shiftedX)
+        .attr("transform", "rotate(" + labelRotation + " " + shiftedX + " " + labelBaseY + ")");
+    });
+
+  var bbox = legendContent.node() && legendContent.node().getBBox ? legendContent.node().getBBox() : null;
+  if (!bbox) {
+    return;
+  }
+  var padding = 10;
+  legendGroup.insert("rect", ":first-child")
+    .attr("class", "legend-background")
+    .attr("x", bbox.x - padding)
+    .attr("y", bbox.y - padding)
+    .attr("width", bbox.width + padding * 2)
+    .attr("height", bbox.height + padding * 2)
+    .attr("rx", 12)
+    .attr("ry", 12)
+    .attr("fill", "rgba(255, 255, 255, 0.9)")
+    .attr("stroke", "#dfe5ef");
+}
+
+function clearLegend() {
+  if (legendGroup) {
+    legendGroup.selectAll("*").remove();
+  }
 }
 function selectDefaultField(fields, preferredKey, defaultToNone) {
   if (!fields || !fields.length) {

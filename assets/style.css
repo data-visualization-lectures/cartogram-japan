@@ -136,6 +136,17 @@ body {
   color: #0f172a;
 }
 
+#legend .legend-title {
+  font-size: 12px;
+  font-weight: 600;
+  fill: #0f172a;
+}
+
+#legend text {
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
 .info-note {
   font-size: 0.9rem;
   color: var(--text-muted);
