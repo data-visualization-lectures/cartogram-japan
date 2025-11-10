@@ -10,16 +10,31 @@ if (!document.createElementNS) {
 var KEY_COLUMN = "都道府県",
     MAX_FILE_SIZE = 2 * 1024 * 1024,
     PREVIEW_ROW_COUNT = 6,
-    CURRENT_PREVIEW_ROW_COUNT = 12;
+    CURRENT_PREVIEW_ROW_COUNT = 12,
+    DEFAULT_COLOR_SCHEME_ID = "blues";
+
+var COLOR_SCHEMES = [
+  { id: "blues", name: "Blues", interpolator: d3.interpolateBlues },
+  { id: "greens", name: "Greens", interpolator: d3.interpolateGreens },
+  { id: "oranges", name: "Oranges", interpolator: d3.interpolateOranges },
+  { id: "purples", name: "Purples", interpolator: d3.interpolatePurples },
+  { id: "reds", name: "Reds", interpolator: d3.interpolateReds },
+  { id: "viridis", name: "Viridis", interpolator: d3.interpolateViridis },
+  { id: "inferno", name: "Inferno", interpolator: d3.interpolateInferno },
+  { id: "magma", name: "Magma", interpolator: d3.interpolateMagma },
+  { id: "plasma", name: "Plasma", interpolator: d3.interpolatePlasma },
+  { id: "cividis", name: "Cividis", interpolator: d3.interpolateCividis },
+  { id: "turbo", name: "Turbo", interpolator: d3.interpolateTurbo }
+];
 
 var fields = [],
     fieldsById = d3.map(),
     field = null,
-    colors = d3.schemeBlues[9],
     rawData,
     pendingDataset = null,
     originalData = null,
-    isInitialized = false;
+    isInitialized = false,
+    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID);
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -35,7 +50,8 @@ var fileInput = d3.select("#file-input"),
     currentDataPreview = d3.select("#current-data-preview"),
     toggleCurrentPreviewButton = d3.select("#toggle-current-preview"),
     downloadSvgButton = d3.select("#download-svg-btn"),
-    downloadPngButton = d3.select("#download-png-btn");
+    downloadPngButton = d3.select("#download-png-btn"),
+    colorSchemeSelect = d3.select("#color-scheme");
 
 var applyButtonDefaultText = applyButton.text(),
     applyButtonAppliedText = "適用済み";
@@ -69,11 +85,58 @@ function shouldBypassDropzoneClick(event) {
   return false;
 }
 
+function initializeColorSchemeOptions() {
+  var options = colorSchemeSelect.selectAll("option")
+    .data(COLOR_SCHEMES, function(d) { return d.id; });
+
+  options.enter()
+    .append("option")
+    .merge(options)
+      .attr("value", function(d) { return d.id; })
+      .text(function(d) { return d.name; });
+
+  colorSchemeSelect.on("change", function() {
+    setColorScheme(this.value);
+  });
+
+  setColorScheme(currentColorScheme && currentColorScheme.id, { silent: true });
+}
+
+function setColorScheme(id, options) {
+  var nextScheme = getColorSchemeById(id) || COLOR_SCHEMES[0];
+  var hasChanged = !currentColorScheme || currentColorScheme.id !== nextScheme.id;
+  currentColorScheme = nextScheme;
+  colorSchemeSelect.property("value", currentColorScheme.id);
+  if (hasChanged && (!options || !options.silent)) {
+    if (field && field.id !== "none") {
+      deferredUpdate();
+    }
+  }
+}
+
+function getColorSchemeById(id) {
+  if (!id) {
+    return null;
+  }
+  for (var i = 0; i < COLOR_SCHEMES.length; i++) {
+    if (COLOR_SCHEMES[i].id === id) {
+      return COLOR_SCHEMES[i];
+    }
+  }
+  return null;
+}
+
 var fieldSelect = d3.select("#field")
   .on("change", function() {
     field = fields[this.selectedIndex];
     updateFieldSelection();
   });
+
+if (!currentColorScheme) {
+  currentColorScheme = COLOR_SCHEMES[0];
+}
+
+initializeColorSchemeOptions();
 
 applyButton.property("disabled", true);
 applyButton.text(applyButtonDefaultText);
@@ -241,8 +304,10 @@ function update() {
   var lo = values[0],
       hi = values[values.length - 1];
 
+  var colorInterpolator = (currentColorScheme && currentColorScheme.interpolator) || d3.interpolateBlues;
+
   var color = d3.scaleSequential()
-    .interpolator(d3.interpolateBlues)
+    .interpolator(colorInterpolator)
     .domain([lo, hi]);
 
   // normalize the scale to positive numbers

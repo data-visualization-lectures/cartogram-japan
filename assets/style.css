@@ -119,6 +119,23 @@ body {
   font-weight: 700;
 }
 
+.map-select {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.map-select select {
+  min-width: 150px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
 .info-note {
   font-size: 0.9rem;
   color: var(--text-muted);
