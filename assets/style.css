@@ -314,8 +314,9 @@ body {
 }
 
 .current-status {
-  display: inline-flex;
-  border-radius: 999px;
+  display: flex;
+  width: 100%;
+  border-radius: 0;
   background: var(--secondary-bg);
   overflow: hidden;
   margin-bottom: 0.5rem;
