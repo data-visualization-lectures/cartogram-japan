@@ -70,9 +70,9 @@ function shouldBypassDropzoneClick(event) {
 }
 
 var fieldSelect = d3.select("#field")
-  .on("change", function(e) {
+  .on("change", function() {
     field = fields[this.selectedIndex];
-    location.hash = "#" + field.id;
+    updateFieldSelection();
   });
 
 applyButton.property("disabled", true);
@@ -298,15 +298,10 @@ var deferredUpdate = (function() {
   };
 })();
 
-var hashish = d3.selectAll("a.hashish")
-  .datum(function() {
-    return this.href;
-  });
-
-function parseHash() {
-  var desiredFieldId = location.hash.substr(1);
-
-  field = (fieldsById && fieldsById.get(desiredFieldId)) || fields[0];
+function updateFieldSelection() {
+  if (!field) {
+    return;
+  }
 
   if (fields.length) {
     fieldSelect.property("selectedIndex", Math.max(fields.indexOf(field), 0));
@@ -316,11 +311,6 @@ function parseHash() {
     reset();
   } else {
     deferredUpdate();
-    location.replace("#" + field.id);
-
-    hashish.attr("href", function(href) {
-      return href + location.hash;
-    });
   }
 }
 
@@ -347,8 +337,7 @@ function loadDataset(data, options) {
   stat.classed("empty", true);
 
   if (field && isInitialized && !options.deferRender) {
-    location.replace("#" + field.id);
-    parseHash();
+    updateFieldSelection();
   }
 }
 
