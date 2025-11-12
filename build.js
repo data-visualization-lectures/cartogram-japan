@@ -49,12 +49,12 @@ function minifyCSS(inputFile, outputFile) {
   }
 }
 
-// Minify JS files
+// Concatenate and minify JS files
 console.log('Building...\n');
 
-const jsFiles = [
-  { input: 'assets/topogram.js', output: 'dist/topogram.min.js' },
-  { input: 'assets/main.js', output: 'dist/main.min.js' }
+const jsFilesToConcat = [
+  'assets/topogram.js',
+  'assets/main.js'
 ];
 
 const cssFiles = [
@@ -63,11 +63,28 @@ const cssFiles = [
 
 let allSuccess = true;
 
-// Process JS files
-jsFiles.forEach(file => {
-  const success = minifyJS(file.input, file.output);
-  allSuccess = allSuccess && success;
-});
+// Concatenate JS files and minify
+try {
+  let combinedCode = jsFilesToConcat
+    .map(file => {
+      const code = fs.readFileSync(file, 'utf8');
+      return `/* ${file} */\n${code}`;
+    })
+    .join('\n\n');
+
+  const result = UglifyJS.minify(combinedCode);
+
+  if (result.error) {
+    console.error('Error minifying JS files:', result.error);
+    allSuccess = false;
+  } else {
+    fs.writeFileSync('dist/app.min.js', result.code, 'utf8');
+    console.log(`✓ Concatenated and minified: ${jsFilesToConcat.join(', ')} → dist/app.min.js`);
+  }
+} catch (error) {
+  console.error('Error processing JS files:', error.message);
+  allSuccess = false;
+}
 
 // Process CSS files
 cssFiles.forEach(file => {

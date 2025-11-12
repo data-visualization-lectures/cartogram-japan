@@ -36,13 +36,11 @@ npm run build
 ```
 
 3. 以下のminifyされたファイルが`dist/`に生成されます：
-   - `dist/topogram.min.js` (topogram.js をminify)
-   - `dist/main.min.js` (main.js をminify)
+   - `dist/app.min.js` (topogram.js + main.js を連結・minify)
    - `dist/style.min.css` (style.css をminify)
 
 **ファイルサイズの削減:**
-- topogram.js: 74KB → 22KB (約70%削減)
-- main.js: 28KB → 19KB (約32%削減)
+- topogram.js + main.js: 102KB → 41KB (約60%削減)
 - style.css: 7.0KB → 5.6KB (約20%削減)
 
 ### リモートビルド・デプロイ
@@ -51,8 +49,7 @@ Webサーバにデプロイする際は、以下のファイルをアップロ�
 
 **必須ファイル:**
 - `index.html` - メインHTMLファイル
-- `dist/topogram.min.js` - Cartogramライブラリ（minify版）
-- `dist/main.min.js` - メインアプリケーション（minify版）
+- `dist/app.min.js` - アプリケーション（Cartogramライブラリ + メイン、minify・バンドル版）
 - `dist/style.min.css` - スタイルシート（minify版）
 - `assets/d3-legend.min.js` - D3凡例プラグイン
 - `data/japan.topojson` - 日本地図データ
@@ -69,8 +66,7 @@ Webサーバにデプロイする際は、以下のファイルをアップロ�
 public_html/
 ├── index.html
 ├── dist/
-│   ├── topogram.min.js
-│   ├── main.min.js
+│   ├── app.min.js
 │   └── style.min.css
 ├── assets/
 │   └── d3-legend.min.js
@@ -86,6 +82,14 @@ public_html/
 ### 開発フロー
 
 1. `assets/main.js`, `assets/topogram.js`, `assets/style.css`を編集
-2. `npm run build`を実行してminify版を生成
+2. `npm run build`を実行してバンドル・minify版を生成
+   - `dist/app.min.js` (topogram.js + main.js を連結・minify)
+   - `dist/style.min.css` (style.css をminify)
 3. 生成された`dist/`ファイルをコミット＆プッシュ
 4. リモートサーバにアップロード
+
+### ビルド出力ファイル
+
+ローカルビルド時に`dist/`に生成されるファイル：
+- `dist/app.min.js` - バンドルされたアプリケーション（本番用）
+- `dist/style.min.css` - Minify済みスタイルシート（本番用）
