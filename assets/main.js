@@ -981,7 +981,7 @@ function renderLegend(colorScale, minValue, maxValue) {
     .attr("height", bbox.height + padding * 2)
     .attr("rx", 12)
     .attr("ry", 12)
-    .attr("fill", "rgba(255, 255, 255, 0.9)")
+    .attr("fill", "#ffffff")
     .attr("stroke", "#dfe5ef");
 
   // 凡例全体を右下から一定距離に配置
