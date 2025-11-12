@@ -1,0 +1,13 @@
+{
+  "name": "cartogram-japan",
+  "version": "1.0.0",
+  "description": "Japan Cartogram Generator",
+  "main": "index.html",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "uglify-js": "^3.17.4",
+    "clean-css": "^5.3.2"
+  }
+}
