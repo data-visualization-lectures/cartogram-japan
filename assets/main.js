@@ -50,7 +50,8 @@ var fields = [],
     originalData = null,
     isInitialized = false,
     currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID),
-    currentLegendCells = 5;
+    currentLegendCells = 5,
+    legendUnit = "";
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -69,7 +70,8 @@ var fileInput = d3.select("#file-input"),
     downloadSvgButton = d3.select("#download-svg-btn"),
     downloadPngButton = d3.select("#download-png-btn"),
     colorSchemeSelect = d3.select("#color-scheme"),
-    legendCellsSelect = d3.select("#legend-cells");
+    legendCellsSelect = d3.select("#legend-cells"),
+    legendUnitInput = d3.select("#legend-unit");
 
 var applyButtonDefaultText = applyButton.text(),
     applyButtonAppliedText = "適用済み";
@@ -163,6 +165,13 @@ initializeColorSchemeOptions();
 
 legendCellsSelect.on("change", function() {
   currentLegendCells = +this.value;
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
+});
+
+legendUnitInput.on("input", function() {
+  legendUnit = (this.value || "").trim();
   if (field && field.id !== "none") {
     deferredUpdate();
   }
@@ -940,6 +949,10 @@ function renderLegend(colorScale, minValue, maxValue) {
 
   var legendFieldName = (field && field.name && field.id !== "none") ? field.name : "値";
   var formatValue = d3.format(",.0f");
+  function formatValueWithUnit(value) {
+    var baseValue = formatValue(value);
+    return legendUnit ? baseValue + legendUnit : baseValue;
+  }
 
   legendGroup.selectAll("*").remove();
 
@@ -950,7 +963,7 @@ function renderLegend(colorScale, minValue, maxValue) {
     .attr("class", "legend-title")
     .attr("x", 0)
     .attr("y", 0)
-    .text(legendFieldName + "（" + formatValue(minValue) + " ～ " + formatValue(maxValue) + "）");
+    .text(legendFieldName + "（" + formatValueWithUnit(minValue) + " ～ " + formatValueWithUnit(maxValue) + "）");
 
   var barOffsetTop = 20;
   var labelOffset = 18;

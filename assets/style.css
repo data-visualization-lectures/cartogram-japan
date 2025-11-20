@@ -136,6 +136,41 @@ body {
   color: #0f172a;
 }
 
+.map-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.map-controls select {
+  min-width: 140px;
+}
+
+.map-select .unit-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.map-select .unit-field label {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.map-select .unit-field input {
+  min-width: 90px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
 #legend .legend-title {
   font-size: 12px;
   font-weight: 600;

@@ -105,14 +105,20 @@
             </div>
             <div class="map-select">
               <select id="field" aria-label="データ指標"></select>
-              <select id="color-scheme" aria-label="カラースキーム"></select>
-              <select id="legend-cells" aria-label="凡例の色数">
-                <option value="3">3色</option>
-                <option value="4">4色</option>
-                <option value="5" selected>5色</option>
-                <option value="6">6色</option>
-                <option value="7">7色</option>
-              </select>
+              <div class="map-controls">
+                <div class="unit-field">
+                  <label for="legend-unit">単位</label>
+                  <input id="legend-unit" type="text" maxlength="16" placeholder="例：円">
+                </div>
+                <select id="legend-cells" aria-label="凡例の色数">
+                  <option value="3">3色</option>
+                  <option value="4">4色</option>
+                  <option value="5" selected>5色</option>
+                  <option value="6">6色</option>
+                  <option value="7">7色</option>
+                </select>
+                <select id="color-scheme" aria-label="カラースキーム"></select>
+              </div>
             </div>
           </div>
           <div id="map-container" class="map-frame">
