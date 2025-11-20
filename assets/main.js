@@ -62,7 +62,8 @@ var fields = [],
     currentColorScheme = null,
     currentLegendCells = 5,
     legendUnit = "",
-    currentMode = "value";
+    currentMode = "value",
+    currentLegendBoundaries = null;
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -436,19 +437,18 @@ function update() {
     legendMin = 1;
     legendMax = Math.max(1, totalRanks);
     var steps = Math.max(3, currentLegendCells);
-    var samples = buildColorSamples(colorInterpolator, steps);
-    var centerRank = Math.min(24, Math.max(1, legendMax));
-    var domain = buildRankingDomain(legendMin, centerRank, legendMax, samples.length);
-    color = d3.scaleLinear()
-      .domain(domain)
-      .range(samples)
-      .clamp(true);
+    var colorRange = buildColorSamples(colorInterpolator, steps);
+    color = d3.scaleQuantize()
+      .domain([legendMin, legendMax])
+      .range(colorRange);
+    currentLegendBoundaries = null;
   } else {
     var colorSteps = Math.max(1, currentLegendCells);
     var colorRange = buildColorSamples(colorInterpolator, colorSteps);
     color = d3.scaleQuantize()
       .domain([lo, hi])
       .range(colorRange);
+    currentLegendBoundaries = null;
   }
 
   // normalize the scale to positive numbers
@@ -487,7 +487,7 @@ function update() {
     })
     .attr("d", carto.path);
   
-  renderLegend(color, legendMin, legendMax);
+  renderLegend(color, legendMin, legendMax, currentLegendBoundaries);
 
   var delta = (Date.now() - start) / 1000;
   stat.text(["calculated in", delta.toFixed(1), "seconds"].join(" "));
@@ -1125,7 +1125,7 @@ function resetMapVisualState() {
 }
 
 
-function renderLegend(colorScale, minValue, maxValue) {
+function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
   if (!legendGroup || typeof d3.legendColor !== "function" || !colorScale) {
     return;
   }
@@ -1172,22 +1172,40 @@ function renderLegend(colorScale, minValue, maxValue) {
     .attr("stroke-width", 1)
     .attr("shape-rendering", "crispEdges");
   
-  var labelRotation = -40;
-  var labelXOffset = 4;
-  legendContent.selectAll(".legend-scale text")
-    .filter(function() {
-      return !d3.select(this).classed("legend-title");
-    })
-    .attr("text-anchor", "end")
-    .attr("y", labelBaseY)
-    .each(function() {
-      var text = d3.select(this);
-      var currentX = +text.attr("x") || 0;
-      var shiftedX = currentX + labelXOffset;
-      text
-        .attr("x", shiftedX)
-        .attr("transform", "rotate(" + labelRotation + " " + shiftedX + " " + labelBaseY + ")");
-    });
+  var legendCells = legendScaleGroup.selectAll(".cell");
+  legendCells.select("text").remove();
+
+  var legendExtents = getLegendExtents(colorScale, minValue, maxValue, legendBoundaries);
+  legendCells.each(function(d, i) {
+    var cell = d3.select(this);
+    var rect = cell.select("rect");
+    var rectX = parseFloat(rect.attr("x")) || 0;
+    var rectY = parseFloat(rect.attr("y")) || 0;
+    var rectWidth = parseFloat(rect.attr("width")) || 36;
+    var rectHeight = parseFloat(rect.attr("height")) || 12;
+    var textY = rectY + rectHeight + 14;
+    var extent = legendExtents[i] || [minValue, maxValue];
+    var leftValue = extent[0];
+    var rightValue = extent[1];
+
+    var leftAnchorX = rectX;
+    cell.append("text")
+      .attr("class", "legend-bound-left")
+      .attr("x", leftAnchorX)
+      .attr("y", textY)
+      .attr("text-anchor", "middle")
+      .text(formatValueWithUnit(leftValue));
+
+    if (i === legendExtents.length - 1) {
+      var rightAnchorX = rectX + rectWidth;
+      cell.append("text")
+        .attr("class", "legend-bound-right")
+        .attr("x", rightAnchorX)
+        .attr("y", textY)
+        .attr("text-anchor", "middle")
+        .text(formatValueWithUnit(rightValue));
+    }
+  });
 
   var bbox = legendContent.node() && legendContent.node().getBBox ? legendContent.node().getBBox() : null;
   if (!bbox) {
@@ -1221,6 +1239,45 @@ function clearLegend() {
     legendGroup.selectAll("*").remove();
   }
 }
+
+function getLegendExtents(colorScale, fallbackMin, fallbackMax, legendBoundaries) {
+  if (legendBoundaries && legendBoundaries.length) {
+    var extents = legendBoundaries.map(function(boundary, index) {
+      var high = legendBoundaries[index + 1] != null ? legendBoundaries[index + 1] : fallbackMax;
+      return [
+        boundary != null ? boundary : fallbackMin,
+        high
+      ];
+    });
+    if (extents.length) {
+      extents[0][0] = extents[0][0] != null ? extents[0][0] : fallbackMin;
+      extents[extents.length - 1][1] = fallbackMax;
+    }
+    return extents;
+  }
+  if (!colorScale || typeof colorScale.range !== "function") {
+    return [];
+  }
+  var colors = colorScale.range() || [];
+  if (!colors.length) {
+    return [];
+  }
+  var extents = colors.map(function(color) {
+    var extent = colorScale.invertExtent ? colorScale.invertExtent(color) : null;
+    var low = extent && extent[0] != null ? extent[0] : fallbackMin;
+    var high = extent && extent[1] != null ? extent[1] : fallbackMax;
+    return [low, high];
+  });
+  if (extents.length) {
+    extents[0][0] = extents[0][0] != null ? extents[0][0] : fallbackMin;
+    var lastExtent = extents[extents.length - 1];
+    if (lastExtent) {
+      lastExtent[1] = lastExtent[1] != null ? lastExtent[1] : fallbackMax;
+    }
+  }
+  return extents;
+}
+
 function augmentWithRankings(data) {
   if (!data || !data.length) {
     return;
