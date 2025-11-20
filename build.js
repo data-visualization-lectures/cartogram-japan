@@ -53,6 +53,10 @@ function minifyCSS(inputFile, outputFile) {
 console.log('Building...\n');
 
 const jsFilesToConcat = [
+  'vendor/d3.v4.js',
+  'vendor/d3-scale-chromatic.v1.min.js',
+  'vendor/topojson.v2.min.js',
+  'assets/d3-legend.min.js',
   'assets/topogram.js',
   'assets/main.js'
 ];
