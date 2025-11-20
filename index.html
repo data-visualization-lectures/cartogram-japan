@@ -64,6 +64,7 @@
               </p>
               <div class="button-row wrap">
                 <a class="btn btn-secondary" id="download-sample" href="data/theme.csv" download>ダウンロード</a>
+                <button class="btn btn-secondary" id="download-data-csv" type="button">CSVダウンロード</button>
                 <button class="btn btn-tertiary" id="reset-data" type="button">サンプルに戻す</button>
               </div>
             </div>
@@ -100,23 +101,26 @@
         <section class="card map-card" id="map-card">
           <div class="map-card-header">
             <div class="map-heading">
-              <h2>地図プレビュー</h2>
-            </div>
-            <div class="map-select">
-              <select id="field" aria-label="データ指標"></select>
-              <div class="map-controls">
-                <div class="unit-field">
-                  <label for="legend-unit">単位</label>
-                  <input id="legend-unit" type="text" maxlength="16" placeholder="例：円">
+              <div class="map-select">
+                <select id="field" aria-label="データ指標"></select>
+                <div class="map-controls">
+                  <div class="unit-field">
+                    <label for="legend-unit">単位</label>
+                    <input id="legend-unit" type="text" maxlength="16" placeholder="例：円">
+                  </div>
+                  <select id="legend-cells" aria-label="凡例の色数">
+                    <option value="3">3色</option>
+                    <option value="4">4色</option>
+                    <option value="5" selected>5色</option>
+                    <option value="6">6色</option>
+                    <option value="7">7色</option>
+                  </select>
+                  <select id="display-mode" aria-label="表示モード">
+                    <option value="value" selected>実数モード</option>
+                    <option value="ranking">ランキングモード</option>
+                  </select>
+                  <select id="color-scheme" aria-label="カラースキーム"></select>
                 </div>
-                <select id="legend-cells" aria-label="凡例の色数">
-                  <option value="3">3色</option>
-                  <option value="4">4色</option>
-                  <option value="5" selected>5色</option>
-                  <option value="6">6色</option>
-                  <option value="7">7色</option>
-                </select>
-                <select id="color-scheme" aria-label="カラースキーム"></select>
               </div>
             </div>
           </div>

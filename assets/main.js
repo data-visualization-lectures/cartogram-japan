@@ -13,9 +13,11 @@ var KEY_COLUMN = "都道府県",
     CURRENT_PREVIEW_ROW_COUNT = 12,
     DEFAULT_COLOR_SCHEME_ID = "blues";
 
+var RANKING_SUFFIX = " ランキング";
 var COLOR_SCHEME_GROUPS = [
   {
     label: "ColorBrewer",
+    type: "sequential",
     schemes: [
       { id: "blues", name: "Blues", interpolator: d3.interpolateBlues },
       { id: "greens", name: "Greens", interpolator: d3.interpolateGreens },
@@ -26,6 +28,7 @@ var COLOR_SCHEME_GROUPS = [
   },
   {
     label: "Matplotlib",
+    type: "sequential",
     schemes: [
       { id: "viridis", name: "Viridis", interpolator: d3.interpolateViridis },
       { id: "inferno", name: "Inferno", interpolator: d3.interpolateInferno },
@@ -34,13 +37,20 @@ var COLOR_SCHEME_GROUPS = [
       { id: "cividis", name: "Cividis", interpolator: d3.interpolateCividis },
       { id: "turbo", name: "Turbo", interpolator: d3.interpolateTurbo }
     ]
+  },
+  {
+    label: "Diverging",
+    type: "diverging",
+    schemes: [
+      { id: "rdgy", name: "Red-Grey", interpolator: d3.interpolateRdGy },
+      { id: "rdbu", name: "Red-Blue", interpolator: d3.interpolateRdBu },
+      { id: "prgn", name: "Purple-Green", interpolator: d3.interpolatePRGn },
+      { id: "puor", name: "Purple-Orange", interpolator: d3.interpolatePuOr }
+    ]
   }
 ];
 
 var COLOR_SCHEMES = [];
-COLOR_SCHEME_GROUPS.forEach(function(group) {
-  COLOR_SCHEMES = COLOR_SCHEMES.concat(group.schemes);
-});
 
 var fields = [],
     fieldsById = d3.map(),
@@ -49,9 +59,10 @@ var fields = [],
     pendingDataset = null,
     originalData = null,
     isInitialized = false,
-    currentColorScheme = getColorSchemeById(DEFAULT_COLOR_SCHEME_ID),
+    currentColorScheme = null,
     currentLegendCells = 5,
-    legendUnit = "";
+    legendUnit = "",
+    currentMode = "value";
 
 var body = d3.select("body"),
     stat = d3.select("#status");
@@ -71,7 +82,9 @@ var fileInput = d3.select("#file-input"),
     downloadPngButton = d3.select("#download-png-btn"),
     colorSchemeSelect = d3.select("#color-scheme"),
     legendCellsSelect = d3.select("#legend-cells"),
-    legendUnitInput = d3.select("#legend-unit");
+    legendUnitInput = d3.select("#legend-unit"),
+    displayModeSelect = d3.select("#display-mode"),
+    downloadDataButton = d3.select("#download-data-csv");
 
 var applyButtonDefaultText = applyButton.text(),
     applyButtonAppliedText = "適用済み";
@@ -105,10 +118,18 @@ function shouldBypassDropzoneClick(event) {
   return false;
 }
 
+function getVisibleColorGroups() {
+  return COLOR_SCHEME_GROUPS.filter(function(group) {
+    return currentMode === "ranking" ? group.type === "diverging" : group.type === "sequential";
+  });
+}
+
 function initializeColorSchemeOptions() {
   colorSchemeSelect.selectAll("optgroup").remove();
+  COLOR_SCHEMES = [];
 
-  COLOR_SCHEME_GROUPS.forEach(function(group) {
+  var groups = getVisibleColorGroups();
+  groups.forEach(function(group) {
     var optgroup = colorSchemeSelect.append("optgroup")
       .attr("label", group.label);
 
@@ -118,16 +139,28 @@ function initializeColorSchemeOptions() {
       .append("option")
         .attr("value", function(d) { return d.id; })
         .text(function(d) { return d.name; });
+
+    COLOR_SCHEMES = COLOR_SCHEMES.concat(group.schemes);
   });
 
   colorSchemeSelect.on("change", function() {
     setColorScheme(this.value);
   });
 
-  setColorScheme(currentColorScheme && currentColorScheme.id, { silent: true });
+  var preferredScheme = getColorSchemeById(currentColorScheme && currentColorScheme.id) || getColorSchemeById(DEFAULT_COLOR_SCHEME_ID) || COLOR_SCHEMES[0];
+  if (preferredScheme) {
+    setColorScheme(preferredScheme.id, { silent: true });
+  } else {
+    currentColorScheme = null;
+  }
 }
 
 function setColorScheme(id, options) {
+  if (!COLOR_SCHEMES.length) {
+    currentColorScheme = null;
+    colorSchemeSelect.property("value", null);
+    return;
+  }
   var nextScheme = getColorSchemeById(id) || COLOR_SCHEMES[0];
   var hasChanged = !currentColorScheme || currentColorScheme.id !== nextScheme.id;
   currentColorScheme = nextScheme;
@@ -136,6 +169,20 @@ function setColorScheme(id, options) {
     if (field && field.id !== "none") {
       deferredUpdate();
     }
+  }
+}
+
+function setDisplayMode(mode) {
+  var nextMode = mode === "ranking" ? "ranking" : "value";
+  if (currentMode === nextMode) {
+    return;
+  }
+  displayModeSelect.property("value", nextMode);
+  currentMode = nextMode;
+  initializeColorSchemeOptions();
+  updateLegendCellsOptions();
+  if (field && field.id !== "none") {
+    deferredUpdate();
   }
 }
 
@@ -154,14 +201,20 @@ function getColorSchemeById(id) {
 var fieldSelect = d3.select("#field")
   .on("change", function() {
     field = fields[this.selectedIndex];
+    if (field && field.id !== "none") {
+      legendCellsSelect.property("disabled", false);
+      colorSchemeSelect.property("disabled", false);
+      displayModeSelect.property("disabled", false);
+      initializeColorSchemeOptions();
+    }
     updateFieldSelection();
   });
 
-if (!currentColorScheme) {
-  currentColorScheme = COLOR_SCHEMES[0];
-}
+displayModeSelect.on("change", function() {
+  setDisplayMode(this.value);
+});
 
-initializeColorSchemeOptions();
+setDisplayMode(currentMode);
 
 legendCellsSelect.on("change", function() {
   currentLegendCells = +this.value;
@@ -176,6 +229,34 @@ legendUnitInput.on("input", function() {
     deferredUpdate();
   }
 });
+
+function updateLegendCellsOptions() {
+  var isRanking = currentMode === "ranking";
+  var oddDefault = null;
+  legendCellsSelect.selectAll("option").each(function() {
+    var option = d3.select(this);
+    var value = +option.attr("value");
+    var isOdd = value % 2 === 1;
+    if (isRanking && !isOdd) {
+      option.attr("disabled", true);
+    } else {
+      option.attr("disabled", null);
+    }
+    if (isOdd && oddDefault === null) {
+      oddDefault = value;
+    }
+  });
+  if (isRanking) {
+    var currentValue = +legendCellsSelect.property("value");
+    if (currentValue % 2 === 0) {
+      legendCellsSelect.property("value", oddDefault || 3);
+      currentLegendCells = +legendCellsSelect.property("value");
+      if (field && field.id !== "none") {
+        deferredUpdate();
+      }
+    }
+  }
+}
 
 applyButton.property("disabled", true);
 applyButton.text(applyButtonDefaultText);
@@ -226,6 +307,7 @@ toggleCurrentPreviewButton.on("click", function() {
 
 downloadSvgButton.on("click", downloadCurrentSvg);
 downloadPngButton.on("click", downloadCurrentPng);
+downloadDataButton.on("click", downloadCurrentDatasetCsv);
 
 applyButton.on("click", applyPendingData);
 resetButton.on("click", resetToSampleData);
@@ -262,6 +344,7 @@ d3.json("data/japan.topojson", function(topo) {
   topology = topo;
   geometries = topology.objects.japan.geometries;
   d3.csv("data/theme.csv", function(data) {
+    augmentWithRankings(data);
     originalData = cloneDataset(data);
     loadDataset(cloneDataset(data), {
       deferRender: true,
@@ -344,12 +427,29 @@ function update() {
       hi = values[values.length - 1];
 
   var colorInterpolator = (currentColorScheme && currentColorScheme.interpolator) || d3.interpolateBlues;
-  var colorSteps = Math.max(1, currentLegendCells);
-  var colorRange = buildColorSamples(colorInterpolator, colorSteps);
+  var legendMin = lo;
+  var legendMax = hi;
+  var color;
 
-  var color = d3.scaleQuantize()
-    .domain([lo, hi])
-    .range(colorRange);
+  if (currentMode === "ranking") {
+    var totalRanks = values.length;
+    legendMin = 1;
+    legendMax = Math.max(1, totalRanks);
+    var steps = Math.max(3, currentLegendCells);
+    var samples = buildColorSamples(colorInterpolator, steps);
+    var centerRank = Math.min(24, Math.max(1, legendMax));
+    var domain = buildRankingDomain(legendMin, centerRank, legendMax, samples.length);
+    color = d3.scaleLinear()
+      .domain(domain)
+      .range(samples)
+      .clamp(true);
+  } else {
+    var colorSteps = Math.max(1, currentLegendCells);
+    var colorRange = buildColorSamples(colorInterpolator, colorSteps);
+    color = d3.scaleQuantize()
+      .domain([lo, hi])
+      .range(colorRange);
+  }
 
   // normalize the scale to positive numbers
   var scale = d3.scaleLinear()
@@ -381,12 +481,13 @@ function update() {
     .duration(750)
     .ease(d3.easeLinear)
     .attr("fill", function(d) {
-      var colorValue = value(d);
+      var rawValue = value(d);
+      var colorValue = currentMode === "ranking" ? getRankingValue(d) : rawValue;
       return isNaN(colorValue) ? "#f0f0f0" : color(colorValue);
     })
     .attr("d", carto.path);
   
-  renderLegend(color, lo, hi);
+  renderLegend(color, legendMin, legendMax);
 
   var delta = (Date.now() - start) / 1000;
   stat.text(["calculated in", delta.toFixed(1), "seconds"].join(" "));
@@ -404,6 +505,48 @@ function buildColorSamples(interpolator, steps) {
     samples.push(interpolator(i / (normalizedSteps - 1)));
   }
   return samples;
+}
+
+function buildRankingDomain(minRank, centerRank, maxRank, steps) {
+  if (steps <= 0) {
+    return [];
+  }
+  var domain = [];
+  if (steps === 1) {
+    domain.push(centerRank);
+    return domain;
+  }
+  var centerIndex = Math.floor((steps - 1) / 2);
+  var centerRatio = centerIndex / (steps - 1);
+
+  for (var i = 0; i < steps; i++) {
+    var t = i / (steps - 1);
+    var value;
+    if (t <= centerRatio) {
+      var ratio = centerRatio === 0 ? 0 : t / centerRatio;
+      value = minRank + (centerRank - minRank) * ratio;
+    } else {
+      var ratio = centerRatio === 1 ? 0 : (t - centerRatio) / (1 - centerRatio);
+      value = centerRank + (maxRank - centerRank) * ratio;
+    }
+    domain.push(value);
+  }
+  return domain;
+}
+
+function getRankingColumnKey(column) {
+  return column + RANKING_SUFFIX;
+}
+
+function getRankingValue(feature) {
+  if (!feature || !feature.properties || !field || !field.key) {
+    return NaN;
+  }
+  var value = feature.properties[getRankingColumnKey(field.key)];
+  if (value === undefined || value === null || value === "") {
+    return NaN;
+  }
+  return +value;
 }
 
 var deferredUpdate = (function() {
@@ -430,6 +573,7 @@ function updateFieldSelection() {
   var isNoField = field.id === "none";
   colorSchemeSelect.property("disabled", isNoField);
   legendCellsSelect.property("disabled", isNoField);
+  displayModeSelect.property("disabled", isNoField);
 
   if (isNoField) {
     reset();
@@ -441,7 +585,9 @@ function updateFieldSelection() {
 
 function loadDataset(data, options) {
   options = options || {};
-  rawData = data || [];
+  var dataset = data || [];
+  augmentWithRankings(dataset);
+  rawData = dataset;
   dataById = d3.nest()
     .key(function(d) { return d[KEY_COLUMN]; })
     .rollup(function(d) { return d[0]; })
@@ -522,7 +668,7 @@ function getNumericColumns(data) {
   }
 
   var headers = Object.keys(data[0]).filter(function(header) {
-    return header !== KEY_COLUMN;
+    return header !== KEY_COLUMN && !hasRankingSuffix(header);
   });
 
   return headers.filter(function(header) {
@@ -531,6 +677,13 @@ function getNumericColumns(data) {
       return value !== undefined && value !== null && value !== "" && !isNaN(+value);
     });
   });
+}
+
+function hasRankingSuffix(header) {
+  if (!header) {
+    return false;
+  }
+  return header.slice(-RANKING_SUFFIX.length) === RANKING_SUFFIX;
 }
 
 function handleFileUpload(file) {
@@ -576,6 +729,8 @@ function preparePreview(data, filename) {
     clearPreview();
     return;
   }
+
+  augmentWithRankings(data);
 
   pendingDataset = {
     data: data,
@@ -843,6 +998,22 @@ function downloadCurrentPng() {
   image.src = url;
 }
 
+function downloadCurrentDatasetCsv() {
+  if (!rawData || !rawData.length) {
+    setUploadStatus("ダウンロードできるデータがありません。", "danger");
+    return;
+  }
+  try {
+    var csvContent = d3.csvFormat(rawData);
+    var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    triggerDownload(blob, getDownloadFilename("csv"));
+    setUploadStatus("CSV をダウンロードしました。", "success");
+  } catch (error) {
+    console.error(error);
+    setUploadStatus("CSV の生成に失敗しました。", "danger");
+  }
+}
+
 function serializeSvg(svgNode) {
   var clone = svgNode.cloneNode(true);
   var dims = extractSvgDimensions(svgNode);
@@ -963,6 +1134,9 @@ function renderLegend(colorScale, minValue, maxValue) {
   var formatValue = d3.format(",.0f");
   function formatValueWithUnit(value) {
     var baseValue = formatValue(value);
+    if (currentMode === "ranking") {
+      return baseValue;
+    }
     return legendUnit ? baseValue + legendUnit : baseValue;
   }
 
@@ -1046,6 +1220,53 @@ function clearLegend() {
   if (legendGroup) {
     legendGroup.selectAll("*").remove();
   }
+}
+function augmentWithRankings(data) {
+  if (!data || !data.length) {
+    return;
+  }
+  var numericColumns = getNumericColumns(data);
+  if (!numericColumns.length) {
+    return;
+  }
+  numericColumns.forEach(function(column) {
+    var entries = data.map(function(row) {
+      var value = +row[column];
+      return {
+        row: row,
+        value: isNaN(value) ? null : value
+      };
+    });
+
+    entries.sort(function(a, b) {
+      var aNull = a.value === null;
+      var bNull = b.value === null;
+      if (aNull && bNull) {
+        return 0;
+      }
+      if (aNull) {
+        return 1;
+      }
+      if (bNull) {
+        return -1;
+      }
+      return b.value - a.value;
+    });
+
+    var lastValue = null;
+    var rank = 0;
+    entries.forEach(function(entry, index) {
+      if (entry.value === null) {
+        entry.row[getRankingColumnKey(column)] = "";
+        return;
+      }
+      if (index === 0 || entry.value !== lastValue) {
+        rank = index + 1;
+        lastValue = entry.value;
+      }
+      entry.row[getRankingColumnKey(column)] = rank;
+    });
+  });
 }
 function selectDefaultField(fields, preferredKey, defaultToNone) {
   if (!fields || !fields.length) {
