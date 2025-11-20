@@ -62,6 +62,7 @@ var fields = [],
     currentColorScheme = null,
     currentLegendCells = 5,
     legendUnit = "",
+    legendUnitCache = "",
     currentMode = "value",
     currentLegendBoundaries = null;
 
@@ -180,6 +181,18 @@ function setDisplayMode(mode) {
   }
   displayModeSelect.property("value", nextMode);
   currentMode = nextMode;
+  if (currentMode === "ranking") {
+    legendUnitCache = legendUnit;
+    legendUnit = "位";
+    legendUnitInput
+      .property("value", legendUnit)
+      .property("disabled", true);
+  } else {
+    legendUnit = legendUnitCache || "";
+    legendUnitInput
+      .property("value", legendUnit)
+      .property("disabled", false);
+  }
   initializeColorSchemeOptions();
   updateLegendCellsOptions();
   if (field && field.id !== "none") {
@@ -226,6 +239,9 @@ legendCellsSelect.on("change", function() {
 
 legendUnitInput.on("input", function() {
   legendUnit = (this.value || "").trim();
+  if (currentMode === "value") {
+    legendUnitCache = legendUnit;
+  }
   if (field && field.id !== "none") {
     deferredUpdate();
   }
@@ -1132,12 +1148,8 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
 
   var legendFieldName = (field && field.name && field.id !== "none") ? field.name : "値";
   var formatValue = d3.format(",.0f");
-  function formatValueWithUnit(value) {
-    var baseValue = formatValue(value);
-    if (currentMode === "ranking") {
-      return baseValue;
-    }
-    return legendUnit ? baseValue + legendUnit : baseValue;
+  function formatValueText(value) {
+    return formatValue(value);
   }
 
   legendGroup.selectAll("*").remove();
@@ -1145,11 +1157,14 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
   var legendContent = legendGroup.append("g")
     .attr("class", "legend-content");
 
+  var unitLabel = currentMode === "ranking" ? "位" : (legendUnit || "");
+  var rangeText = formatValueText(minValue) + " ～ " + formatValueText(maxValue);
+  var titleSuffix = unitLabel ? " " + unitLabel : "";
   legendContent.append("text")
     .attr("class", "legend-title")
     .attr("x", 0)
     .attr("y", 0)
-    .text(legendFieldName + "（" + formatValueWithUnit(minValue) + " ～ " + formatValueWithUnit(maxValue) + "）");
+    .text(legendFieldName + "（" + rangeText + titleSuffix + "）");
 
   var barOffsetTop = 20;
   var labelOffset = 18;
@@ -1194,7 +1209,7 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
       .attr("x", leftAnchorX)
       .attr("y", textY)
       .attr("text-anchor", "middle")
-      .text(formatValueWithUnit(leftValue));
+      .text(formatValueText(leftValue));
 
     if (currentMode !== "ranking") {
       var labelRotation = -40;
@@ -1210,7 +1225,7 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
         .attr("x", rightAnchorX)
         .attr("y", textY)
         .attr("text-anchor", "middle")
-        .text(formatValueWithUnit(rightValue));
+        .text(formatValueText(rightValue));
       if (currentMode !== "ranking") {
         var labelRotation = -40;
         var labelOffset = -4;

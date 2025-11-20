@@ -170,6 +170,12 @@ body {
   font-size: 0.85rem;
   color: #0f172a;
 }
+.map-select .unit-field input:disabled {
+  background: #f2f4f7;
+  color: #9ea0a5;
+  border-color: #dcdfe7;
+  cursor: not-allowed;
+}
 
 #legend .legend-title {
   font-size: 12px;
