@@ -345,7 +345,7 @@ function update() {
 
   var colorInterpolator = (currentColorScheme && currentColorScheme.interpolator) || d3.interpolateBlues;
   var colorSteps = Math.max(1, currentLegendCells);
-  var colorRange = d3.quantize(colorInterpolator, colorSteps);
+  var colorRange = buildColorSamples(colorInterpolator, colorSteps);
 
   var color = d3.scaleQuantize()
     .domain([lo, hi])
@@ -392,6 +392,18 @@ function update() {
   stat.text(["calculated in", delta.toFixed(1), "seconds"].join(" "));
   stat.classed("empty", false);
   body.classed("updating", false);
+}
+
+function buildColorSamples(interpolator, steps) {
+  var normalizedSteps = Math.max(1, steps || 1);
+  if (normalizedSteps === 1) {
+    return [interpolator(0.5)];
+  }
+  var samples = [];
+  for (var i = 0; i < normalizedSteps; i++) {
+    samples.push(interpolator(i / (normalizedSteps - 1)));
+  }
+  return samples;
 }
 
 var deferredUpdate = (function() {
