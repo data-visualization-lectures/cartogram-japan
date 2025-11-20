@@ -43,6 +43,10 @@ npm run build
 - topogram.js + main.js: 102KB → 41KB (約60%削減)
 - style.css: 7.0KB → 5.6KB (約20%削減)
 
+### ローカル・プレビュー
+
+npx serve 
+
 ### リモートビルド・デプロイ
 
 Webサーバにデプロイする際は、以下のファイルをアップロードしてください：
