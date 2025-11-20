@@ -335,10 +335,12 @@ function update() {
       hi = values[values.length - 1];
 
   var colorInterpolator = (currentColorScheme && currentColorScheme.interpolator) || d3.interpolateBlues;
+  var colorSteps = Math.max(1, currentLegendCells);
+  var colorRange = d3.quantize(colorInterpolator, colorSteps);
 
-  var color = d3.scaleSequential()
-    .interpolator(colorInterpolator)
-    .domain([lo, hi]);
+  var color = d3.scaleQuantize()
+    .domain([lo, hi])
+    .range(colorRange);
 
   // normalize the scale to positive numbers
   var scale = d3.scaleLinear()
