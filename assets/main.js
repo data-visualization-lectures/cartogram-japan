@@ -1211,6 +1211,13 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
         .attr("y", textY)
         .attr("text-anchor", "middle")
         .text(formatValueWithUnit(rightValue));
+      if (currentMode !== "ranking") {
+        var labelRotation = -40;
+        var labelOffset = -4;
+        cell.select(".legend-bound-right")
+          .attr("transform", "rotate(" + labelRotation + " " + (rightAnchorX + labelOffset) + " " + textY + ")")
+          .attr("dx", labelOffset);
+      }
     }
   });
 
