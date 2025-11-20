@@ -42,10 +42,10 @@ var COLOR_SCHEME_GROUPS = [
     label: "Diverging",
     type: "diverging",
     schemes: [
-      { id: "rdgy", name: "Red-Grey", interpolator: d3.interpolateRdGy },
       { id: "rdbu", name: "Red-Blue", interpolator: d3.interpolateRdBu },
       { id: "prgn", name: "Purple-Green", interpolator: d3.interpolatePRGn },
-      { id: "puor", name: "Purple-Orange", interpolator: d3.interpolatePuOr }
+      { id: "puor", name: "Purple-Orange", interpolator: d3.interpolatePuOr },
+      { id: "piyg", name: "Pink-Yellow-Green", interpolator: d3.interpolatePiYG }
     ]
   }
 ];
