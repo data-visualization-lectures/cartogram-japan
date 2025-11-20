@@ -13,19 +13,34 @@ var KEY_COLUMN = "都道府県",
     CURRENT_PREVIEW_ROW_COUNT = 12,
     DEFAULT_COLOR_SCHEME_ID = "blues";
 
-var COLOR_SCHEMES = [
-  { id: "blues", name: "Blues", interpolator: d3.interpolateBlues },
-  { id: "greens", name: "Greens", interpolator: d3.interpolateGreens },
-  { id: "oranges", name: "Oranges", interpolator: d3.interpolateOranges },
-  { id: "purples", name: "Purples", interpolator: d3.interpolatePurples },
-  { id: "reds", name: "Reds", interpolator: d3.interpolateReds },
-  { id: "viridis", name: "Viridis", interpolator: d3.interpolateViridis },
-  { id: "inferno", name: "Inferno", interpolator: d3.interpolateInferno },
-  { id: "magma", name: "Magma", interpolator: d3.interpolateMagma },
-  { id: "plasma", name: "Plasma", interpolator: d3.interpolatePlasma },
-  { id: "cividis", name: "Cividis", interpolator: d3.interpolateCividis },
-  { id: "turbo", name: "Turbo", interpolator: d3.interpolateTurbo }
+var COLOR_SCHEME_GROUPS = [
+  {
+    label: "ColorBrewer",
+    schemes: [
+      { id: "blues", name: "Blues", interpolator: d3.interpolateBlues },
+      { id: "greens", name: "Greens", interpolator: d3.interpolateGreens },
+      { id: "oranges", name: "Oranges", interpolator: d3.interpolateOranges },
+      { id: "purples", name: "Purples", interpolator: d3.interpolatePurples },
+      { id: "reds", name: "Reds", interpolator: d3.interpolateReds }
+    ]
+  },
+  {
+    label: "Matplotlib",
+    schemes: [
+      { id: "viridis", name: "Viridis", interpolator: d3.interpolateViridis },
+      { id: "inferno", name: "Inferno", interpolator: d3.interpolateInferno },
+      { id: "magma", name: "Magma", interpolator: d3.interpolateMagma },
+      { id: "plasma", name: "Plasma", interpolator: d3.interpolatePlasma },
+      { id: "cividis", name: "Cividis", interpolator: d3.interpolateCividis },
+      { id: "turbo", name: "Turbo", interpolator: d3.interpolateTurbo }
+    ]
+  }
 ];
+
+var COLOR_SCHEMES = [];
+COLOR_SCHEME_GROUPS.forEach(function(group) {
+  COLOR_SCHEMES = COLOR_SCHEMES.concat(group.schemes);
+});
 
 var fields = [],
     fieldsById = d3.map(),
@@ -89,14 +104,19 @@ function shouldBypassDropzoneClick(event) {
 }
 
 function initializeColorSchemeOptions() {
-  var options = colorSchemeSelect.selectAll("option")
-    .data(COLOR_SCHEMES, function(d) { return d.id; });
+  colorSchemeSelect.selectAll("optgroup").remove();
 
-  options.enter()
-    .append("option")
-    .merge(options)
-      .attr("value", function(d) { return d.id; })
-      .text(function(d) { return d.name; });
+  COLOR_SCHEME_GROUPS.forEach(function(group) {
+    var optgroup = colorSchemeSelect.append("optgroup")
+      .attr("label", group.label);
+
+    optgroup.selectAll("option")
+      .data(group.schemes, function(d) { return d.id; })
+      .enter()
+      .append("option")
+        .attr("value", function(d) { return d.id; })
+        .text(function(d) { return d.name; });
+  });
 
   colorSchemeSelect.on("change", function() {
     setColorScheme(this.value);
