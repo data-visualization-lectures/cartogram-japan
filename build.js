@@ -4,7 +4,7 @@ const UglifyJS = require('uglify-js');
 const CleanCSS = require('clean-css');
 
 // Create dist directory if it doesn't exist
-const distDir = path.join(__dirname, 'dist');
+const distDir = path.join(__dirname, 'docs');
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir);
 }
@@ -49,6 +49,23 @@ function minifyCSS(inputFile, outputFile) {
   }
 }
 
+function minifyHTML(inputFile, outputFile) {
+  try {
+    var html = fs.readFileSync(inputFile, 'utf8');
+    html = html.replace(/<!--[\s\S]*?-->/g, '');
+    html = html.replace(/\s+/g, ' ');
+    html = html.replace(/>\s+</g, '><');
+    html = html.trim();
+
+    fs.writeFileSync(outputFile, html, 'utf8');
+    console.log(`✓ Minified: ${inputFile} → ${outputFile}`);
+    return true;
+  } catch (error) {
+    console.error(`Error processing ${inputFile}:`, error.message);
+    return false;
+  }
+}
+
 // Concatenate and minify JS files
 console.log('Building...\n');
 
@@ -62,7 +79,7 @@ const jsFilesToConcat = [
 ];
 
 const cssFiles = [
-  { input: 'assets/style.css', output: 'dist/style.min.css' }
+  { input: 'assets/style.css', output: 'docs/style.min.css' }
 ];
 
 let allSuccess = true;
@@ -82,8 +99,8 @@ try {
     console.error('Error minifying JS files:', result.error);
     allSuccess = false;
   } else {
-    fs.writeFileSync('dist/app.min.js', result.code, 'utf8');
-    console.log(`✓ Concatenated and minified: ${jsFilesToConcat.join(', ')} → dist/app.min.js`);
+    fs.writeFileSync('docs/app.min.js', result.code, 'utf8');
+    console.log(`✓ Concatenated and minified: ${jsFilesToConcat.join(', ')} → docs/app.min.js`);
   }
 } catch (error) {
   console.error('Error processing JS files:', error.message);
@@ -95,6 +112,9 @@ cssFiles.forEach(file => {
   const success = minifyCSS(file.input, file.output);
   allSuccess = allSuccess && success;
 });
+
+const htmlSuccess = minifyHTML('index.html', 'docs/index.html');
+allSuccess = allSuccess && htmlSuccess;
 
 console.log('');
 if (allSuccess) {
