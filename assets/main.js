@@ -1189,12 +1189,19 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
     var rightValue = extent[1];
 
     var leftAnchorX = rectX;
-    cell.append("text")
+    var text = cell.append("text")
       .attr("class", "legend-bound-left")
       .attr("x", leftAnchorX)
       .attr("y", textY)
       .attr("text-anchor", "middle")
       .text(formatValueWithUnit(leftValue));
+
+    if (currentMode !== "ranking") {
+      var labelRotation = -40;
+      var labelOffset = 4;
+      text.attr("transform", "rotate(" + labelRotation + " " + (leftAnchorX + labelOffset) + " " + textY + ")");
+      text.attr("dx", labelOffset);
+    }
 
     if (i === legendExtents.length - 1) {
       var rightAnchorX = rectX + rectWidth;

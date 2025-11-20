@@ -3,7 +3,7 @@ const path = require('path');
 const UglifyJS = require('uglify-js');
 const CleanCSS = require('clean-css');
 
-// Create dist directory if it doesn't exist
+// Create docs directory if it doesn't exist
 const distDir = path.join(__dirname, 'docs');
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir);
@@ -49,7 +49,7 @@ function minifyCSS(inputFile, outputFile) {
   }
 }
 
-function minifyHTML(inputFile, outputFile) {
+function minifyHTML(inputFile, outputFile, options) {
   try {
     var html = fs.readFileSync(inputFile, 'utf8');
     html = html.replace(/<!--[\s\S]*?-->/g, '');
@@ -57,6 +57,10 @@ function minifyHTML(inputFile, outputFile) {
     html = html.replace(/>\s+</g, '><');
     html = html.trim();
 
+    if (options && options.stripDocsPrefix) {
+      html = html.replace(/docs\/style\.min\.css/g, 'style.min.css');
+      html = html.replace(/docs\/app\.min\.js/g, 'app.min.js');
+    }
     fs.writeFileSync(outputFile, html, 'utf8');
     console.log(`✓ Minified: ${inputFile} → ${outputFile}`);
     return true;
@@ -113,8 +117,31 @@ cssFiles.forEach(file => {
   allSuccess = allSuccess && success;
 });
 
-const htmlSuccess = minifyHTML('index.html', 'docs/index.html');
+const htmlSuccess = minifyHTML('index.html', 'docs/index.html', { stripDocsPrefix: true });
 allSuccess = allSuccess && htmlSuccess;
+
+try {
+  const dataSrc = path.join(__dirname, 'data');
+  const dataDest = path.join(distDir, 'data');
+  if (fs.existsSync(dataDest)) {
+    fs.rmSync(dataDest, { recursive: true, force: true });
+  }
+  fs.cpSync(dataSrc, dataDest, { recursive: true });
+  console.log(`✓ Copied: data → docs/data`);
+} catch (error) {
+  console.warn('⚠️  data copy skipped:', error.message);
+}
+
+try {
+  const cnameSrc = path.join(__dirname, 'CNAME');
+  const cnameDest = path.join(distDir, 'CNAME');
+  if (fs.existsSync(cnameSrc)) {
+    fs.copyFileSync(cnameSrc, cnameDest);
+    console.log(`✓ Copied: CNAME → docs/CNAME`);
+  }
+} catch (error) {
+  console.warn('⚠️  CNAME copy skipped:', error.message);
+}
 
 console.log('');
 if (allSuccess) {

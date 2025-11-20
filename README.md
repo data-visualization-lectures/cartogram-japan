@@ -56,9 +56,9 @@ Webサーバにデプロイする際は、以下のファイルをアップロ�
 - `index.html` - メインHTMLファイル
 - `docs/app.min.js` - アプリケーション（Cartogramライブラリ + メイン、minify・バンドル版）
 - `docs/style.min.css` - スタイルシート（minify版）
+- `docs/data/japan.topojson` - 日本地図データ（docs 配下に含めるようになりました）
+- `docs/data/theme.csv` - サンプルデータ
 - `assets/d3-legend.min.js` - D3凡例プラグイン
-- `data/japan.topojson` - 日本地図データ
-- `data/theme.csv` - サンプルデータ
 
 **アップロード不要（CDN経由で読み込み）:**
 - Bootstrap CSS/JS
@@ -72,7 +72,12 @@ public_html/
 ├── index.html
 ├── docs/
 │   ├── app.min.js
-│   └── style.min.css
+│   ├── style.min.css
+│   ├── index.html
+│   ├── CNAME
+│   └── data/
+│       ├── japan.topojson
+│       └── theme.csv
 ├── assets/
 │   └── d3-legend.min.js
 └── data/
