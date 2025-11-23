@@ -177,6 +177,48 @@ body {
   cursor: not-allowed;
 }
 
+.map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.map-toggle .form-check-input {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+#place-labels {
+  pointer-events: none;
+}
+
+#place-labels.is-hidden {
+  display: none;
+}
+
+#place-labels .state-label {
+  font-size: 8px;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+#place-labels .state-label-stroke {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+#place-labels .state-label-fill {
+  fill: #0f172a;
+  stroke: none;
+}
+
 #legend .legend-title {
   font-size: 12px;
   font-weight: 600;

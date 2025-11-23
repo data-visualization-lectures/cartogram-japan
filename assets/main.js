@@ -86,6 +86,7 @@ var fileInput = d3.select("#file-input"),
     legendCellsSelect = d3.select("#legend-cells"),
     legendUnitInput = d3.select("#legend-unit"),
     displayModeSelect = d3.select("#display-mode"),
+    placeNameToggle = d3.select("#toggle-place-names"),
     downloadDataButton = d3.select("#download-data-csv");
 
 var applyButtonDefaultText = applyButton.text(),
@@ -247,6 +248,10 @@ legendUnitInput.on("input", function() {
   }
 });
 
+placeNameToggle.on("change", function() {
+  renderPlaceLabels();
+});
+
 function updateLegendCellsOptions() {
   var isRanking = currentMode === "ranking";
   var oddDefault = null;
@@ -336,6 +341,8 @@ var map = d3.select("#map"),
     states = layer.append("g")
       .attr("id", "states")
       .selectAll("path"),
+    placeLabels = layer.append("g")
+      .attr("id", "place-labels"),
     legendGroup = map.append("g")
       .attr("id", "legend")
       .attr("transform", "translate(520, 660)");
@@ -391,6 +398,7 @@ function init() {
 
   states.append("title");
 
+  renderPlaceLabels();
   updateFieldSelection();
   isInitialized = true;
 }
@@ -415,6 +423,99 @@ function reset() {
   states.select("title")
     .text(function(d) {
       return d.properties.nam_ja;
+    });
+
+  renderPlaceLabels();
+}
+
+function getFeatureLabel(feature) {
+  if (!feature || !feature.properties) {
+    return "";
+  }
+  return feature.properties.nam_ja || feature.properties.nam || feature.properties[KEY_COLUMN] || "";
+}
+
+function renderPlaceLabels() {
+  if (!placeLabels) {
+    return;
+  }
+  var shouldShow = placeNameToggle.empty() ? true : placeNameToggle.property("checked");
+  if (!shouldShow) {
+    placeLabels.selectAll("text").remove();
+    return;
+  }
+  if (!states || !states.size()) {
+    return;
+  }
+
+  var pathGen = (carto && carto.path) ? carto.path : d3.geoPath().projection(proj);
+  var bboxByLabel = d3.map();
+
+  states.each(function(d) {
+    var label = getFeatureLabel(d);
+    if (!label) {
+      return;
+    }
+    try {
+      var box = this.getBBox();
+      bboxByLabel.set(label, {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2
+      });
+    } catch (e) {
+      // ignore
+    }
+  });
+
+  var labels = placeLabels.selectAll("g.place-label")
+    .data(states.data(), function(d) {
+      return getFeatureLabel(d);
+    });
+
+  labels.exit().remove();
+
+  var labelsEnter = labels.enter()
+    .append("g")
+      .attr("class", "place-label");
+
+  labelsEnter.append("text")
+    .attr("class", "state-label state-label-stroke")
+    .attr("text-anchor", "middle")
+    .attr("dy", "0.35em");
+
+  labelsEnter.append("text")
+    .attr("class", "state-label state-label-fill")
+    .attr("text-anchor", "middle")
+    .attr("dy", "0.35em");
+
+  labels = labelsEnter.merge(labels);
+
+  var setPosition = function(d, axis) {
+    var label = getFeatureLabel(d);
+    var fromBox = label ? bboxByLabel.get(label) : null;
+    if (fromBox && isFinite(fromBox[axis])) {
+      return fromBox[axis];
+    }
+    var c = pathGen.centroid(d) || [NaN, NaN];
+    var idx = axis === "x" ? 0 : 1;
+    if (!isFinite(c[idx])) {
+      var b = pathGen.bounds(d);
+      c[idx] = idx === 0
+        ? (b[0][0] + b[1][0]) / 2
+        : (b[0][1] + b[1][1]) / 2;
+    }
+    return c[idx];
+  };
+
+  labels.selectAll("text.state-label")
+    .text(function(d) {
+      return getFeatureLabel(d);
+    })
+    .attr("x", function(d) {
+      return setPosition(d, "x");
+    })
+    .attr("y", function(d) {
+      return setPosition(d, "y");
     });
 }
 
@@ -492,6 +593,8 @@ function update() {
         var displayValue = isNaN(originalValue) ? "データなし" : fmt(originalValue);
         return [d.properties.nam_ja, displayValue].join(": ");
       });
+
+  renderPlaceLabels();
 
   states.transition()
     .duration(750)
@@ -1047,8 +1150,31 @@ function serializeSvg(svgNode) {
   style.textContent = ""
     + "path.state{stroke:#666;stroke-width:.5;}"
     + "#legend .legend-title{font-size:12px;font-weight:600;fill:#0f172a;}"
-    + "#legend text{font-size:11px;fill:#5f6c80;}";
+    + "#legend text{font-size:11px;fill:#5f6c80;}"
+    + ".state-label{font-size:8px;text-anchor:middle;pointer-events:none;}"
+    + ".state-label-stroke{fill:none;stroke:#ffffff;stroke-width:2px;paint-order:stroke;stroke-linejoin:round;}"
+    + ".state-label-fill{fill:#0f172a;stroke:none;}";
   clone.insertBefore(style, clone.firstChild);
+
+  // 念のためラベル要素にスタイルを直接付与してエクスポート時も色が残るようにする
+  Array.prototype.forEach.call(clone.querySelectorAll(".state-label"), function(node) {
+    node.setAttribute("text-anchor", "middle");
+    node.setAttribute("font-size", "8px");
+    node.setAttribute("pointer-events", "none");
+  });
+
+  Array.prototype.forEach.call(clone.querySelectorAll(".state-label-stroke"), function(node) {
+    node.setAttribute("fill", "none");
+    node.setAttribute("stroke", "#ffffff");
+    node.setAttribute("stroke-width", "2");
+    node.setAttribute("paint-order", "stroke");
+    node.setAttribute("stroke-linejoin", "round");
+  });
+
+  Array.prototype.forEach.call(clone.querySelectorAll(".state-label-fill"), function(node) {
+    node.setAttribute("fill", "#0f172a");
+    node.setAttribute("stroke", "none");
+  });
 
   var background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   background.setAttribute("width", "100%");
