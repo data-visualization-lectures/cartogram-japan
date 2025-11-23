@@ -441,7 +441,7 @@ function renderPlaceLabels() {
   }
   var shouldShow = placeNameToggle.empty() ? true : placeNameToggle.property("checked");
   if (!shouldShow) {
-    placeLabels.selectAll("text").remove();
+    placeLabels.selectAll("g.place-label").remove();
     return;
   }
   if (!states || !states.size()) {
