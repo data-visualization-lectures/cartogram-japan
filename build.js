@@ -60,6 +60,8 @@ function minifyHTML(inputFile, outputFile, options) {
     if (options && options.stripDocsPrefix) {
       html = html.replace(/docs\/style\.min\.css/g, 'style.min.css');
       html = html.replace(/docs\/app\.min\.js/g, 'app.min.js');
+      html = html.replace(/docs\/vendor\/supabase\.js/g, 'vendor/supabase.js');
+      html = html.replace(/docs\/vendor\/dataviz-auth-client\.js/g, 'vendor/dataviz-auth-client.js');
     }
     fs.writeFileSync(outputFile, html, 'utf8');
     console.log(`✓ Minified: ${inputFile} → ${outputFile}`);
@@ -141,6 +143,32 @@ try {
   }
 } catch (error) {
   console.warn('⚠️  CNAME copy skipped:', error.message);
+}
+
+// Copy additional vendor files
+const vendorFiles = [
+  'supabase.js',
+  'dataviz-auth-client.js'
+];
+
+try {
+  const vendorDest = path.join(distDir, 'vendor');
+  if (!fs.existsSync(vendorDest)) {
+    fs.mkdirSync(vendorDest);
+  }
+
+  vendorFiles.forEach(file => {
+    const src = path.join(__dirname, 'vendor', file);
+    const dest = path.join(vendorDest, file);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+      console.log(`✓ Copied: vendor/${file} → docs/vendor/${file}`);
+    } else {
+      console.warn(`⚠️  File not found: vendor/${file}`);
+    }
+  });
+} catch (error) {
+  console.warn('⚠️  Vendor file copy skipped:', error.message);
 }
 
 console.log('');
