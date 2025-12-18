@@ -441,6 +441,34 @@ d3.json("data/japan.topojson", function (topo) {
       preserveField: false
     });
     init();
+
+    // Check for project_id URL parameter
+    var params = new URLSearchParams(window.location.search);
+    var projectId = params.get("project_id");
+
+    if (projectId && window.supabase) {
+      console.log("Found project_id:", projectId);
+
+      // Poll for auth session ready
+      var checkAuthInterval = setInterval(function () {
+        if (!window.supabase || !window.supabase.auth) return;
+
+        window.supabase.auth.getSession().then(function (res) {
+          if (res.data.session) {
+            clearInterval(checkAuthInterval);
+            console.log("Session found, loading project...");
+            CloudApi.loadProject(projectId)
+              .then(restoreProjectState)
+              .catch(function (err) {
+                console.error("Auto load failed", err);
+                alert("プロジェクトの読み込みに失敗しました: " + err.message);
+              });
+          }
+        });
+
+        // Timeout after 10s? For now just keep trying till logged in or user gives up
+      }, 500);
+    }
   });
 });
 
