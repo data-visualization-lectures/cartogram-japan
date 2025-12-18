@@ -18,11 +18,18 @@
   </head>
   <body>
     <main class="page container-fluid">
-      <section class="card hero-card">
-        <h1>日本地図カルトグラム</h1>
-        <p>
-          都道府県別データを CSV でアップロードして、面積をデータ値に比例させたカルトグラムをブラウザだけで生成できます。
-        </p>
+      <section class="card hero-card d-flex flex-row justify-content-between align-items-center">
+        <div>
+          <h1>日本地図カルトグラム</h1>
+          <p class="mb-0">
+            都道府県別データを CSV でアップロードして、面積をデータ値に比例させたカルトグラムをブラウザだけで生成できます。
+          </p>
+        </div>
+        <div class="d-flex gap-2">
+          <input type="file" id="project-file-input" accept=".json" style="display: none;" />
+          <button class="btn btn-secondary text-nowrap" id="btn-load-project">プロジェクト・ファイル読込</button>
+          <button class="btn btn-primary text-nowrap" id="btn-save-project">プロジェクト・ファイル保存</button>
+        </div>
       </section>
 
       <div class="layout">

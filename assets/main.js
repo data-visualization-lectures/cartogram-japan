@@ -87,7 +87,10 @@ var fileInput = d3.select("#file-input"),
     legendUnitInput = d3.select("#legend-unit"),
     displayModeSelect = d3.select("#display-mode"),
     placeNameToggle = d3.select("#toggle-place-names"),
-    downloadDataButton = d3.select("#download-data-csv");
+    downloadDataButton = d3.select("#download-data-csv"),
+    loadProjectButton = d3.select("#btn-load-project"),
+    saveProjectButton = d3.select("#btn-save-project"),
+    projectFileInput = d3.select("#project-file-input");
 
 var applyButtonDefaultText = applyButton.text(),
     applyButtonAppliedText = "適用済み";
@@ -330,6 +333,23 @@ toggleCurrentPreviewButton.on("click", function() {
 downloadSvgButton.on("click", downloadCurrentSvg);
 downloadPngButton.on("click", downloadCurrentPng);
 downloadDataButton.on("click", downloadCurrentDatasetCsv);
+
+loadProjectButton.on("click", function() {
+  var node = projectFileInput.node();
+  if (node) {
+    node.click();
+  }
+});
+
+projectFileInput.on("change", function() {
+  var file = this.files && this.files[0];
+  if (file) {
+    loadProjectFile(file);
+  }
+  this.value = "";
+});
+
+saveProjectButton.on("click", saveProjectFile);
 
 applyButton.on("click", applyPendingData);
 resetButton.on("click", resetToSampleData);
@@ -1505,4 +1525,121 @@ function selectDefaultField(fields, preferredKey, defaultToNone) {
   });
 
   return firstNumeric || fields[0];
+}
+
+/* Project Load/Save Functions */
+
+function saveProjectFile() {
+  if (!rawData || !rawData.length) {
+    alert("保存するデータがありません。");
+    return;
+  }
+
+  var saveData = {
+    version: "1.0",
+    timestamp: Date.now(),
+    meta: {
+      datasetName: currentDatasetName
+    },
+    data: rawData,
+    config: {
+      fieldKey: field ? field.key : null,
+      colorSchemeId: currentColorScheme ? currentColorScheme.id : null,
+      legendCells: currentLegendCells,
+      legendUnit: legendUnit,
+      displayMode: currentMode,
+      showPlaceLabels: placeNameToggle.property("checked")
+    }
+  };
+
+  try {
+    var jsonContent = JSON.stringify(saveData, null, 2);
+    var blob = new Blob([jsonContent], { type: "application/json" });
+    var filename = "japan-cartogram-project-" + d3.timeFormat("%Y%m%d-%H%M%S")(new Date()) + ".json";
+    triggerDownload(blob, filename);
+  } catch (e) {
+    console.error(e);
+    alert("保存中にエラーが発生しました。");
+  }
+}
+
+function loadProjectFile(file) {
+  if (!file) {
+    return;
+  }
+  
+  var reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      var jsonContent = evt.target.result;
+      var projectData = JSON.parse(jsonContent);
+      restoreProjectState(projectData);
+    } catch (e) {
+      console.error(e);
+      alert("プロジェクトファイルの読み込みに失敗しました。形式が正しいか確認してください。");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function restoreProjectState(projectData) {
+  if (!projectData || !projectData.data) {
+    alert("有効なプロジェクトデータが見つかりません。");
+    return;
+  }
+
+  var datasetLabel = (projectData.meta && projectData.meta.datasetName) || "ロードされたデータ";
+  var config = projectData.config || {};
+  
+  loadDataset(cloneDataset(projectData.data), {
+    label: datasetLabel,
+    isSample: false,
+    forceFieldKey: config.fieldKey,
+    deferRender: true
+  });
+
+  // 1. 表示モード (Display Mode)
+  // setDisplayMode内でinitializeColorSchemeOptionsなどが呼ばれるので先に設定
+  if (config.displayMode) {
+    setDisplayMode(config.displayMode);
+  }
+
+  // 2. 配色 (Color Scheme)
+  if (config.colorSchemeId) {
+    setColorScheme(config.colorSchemeId, { silent: true });
+  }
+
+  // 3. 凡例階級数 (Legend Cells)
+  if (config.legendCells) {
+    currentLegendCells = +config.legendCells;
+    legendCellsSelect.property("value", currentLegendCells);
+  }
+
+  // 4. 単位 (Unit)
+  if (config.legendUnit !== undefined) {
+    legendUnit = config.legendUnit;
+    if (currentMode === "value") {
+      legendUnitCache = legendUnit;
+    }
+    legendUnitInput.property("value", legendUnit);
+  }
+
+  // 5. 地名ラベル (Place Labels)
+  if (config.showPlaceLabels !== undefined) {
+    placeNameToggle.property("checked", config.showPlaceLabels);
+  }
+
+  // 6. UI状態の更新 (プレビュー隠すなど)
+  currentPreviewVisible = false;
+  toggleCurrentPreviewButton.text("表データを表示");
+  currentDataPreview.classed("is-hidden", true);
+
+  // 7. 最終描画
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  } else {
+    reset();
+  }
+  
+  alert("プロジェクトを読み込みました。");
 }
