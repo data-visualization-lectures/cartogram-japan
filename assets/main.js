@@ -1555,7 +1555,13 @@ function saveProjectFile() {
   try {
     var jsonContent = JSON.stringify(saveData, null, 2);
     var blob = new Blob([jsonContent], { type: "application/json" });
-    var filename = "japan-cartogram-project-" + d3.timeFormat("%Y%m%d-%H%M%S")(new Date()) + ".json";
+
+    var fieldName = (field && field.name && field.id !== "none") ? field.name : "データ未選択";
+    var modeName = currentMode === "ranking" ? "ランキング" : "実数";
+    var dateStr = d3.timeFormat("%y%m%d")(new Date());
+
+    var filename = "日本_" + fieldName + "_" + modeName + "_" + dateStr + ".json";
+
     triggerDownload(blob, filename);
   } catch (e) {
     console.error(e);
