@@ -152,6 +152,28 @@
       </section>
     </div>
   </main>
+
+  <!-- Project List Modal -->
+  <div class="modal fade" id="projectListModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">プロジェクトを開く</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="list-group" id="project-list-group">
+            <!-- Grid items will be injected here -->
+            <p class="text-center text-muted p-4">読み込み中...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer class="footer-links">
     <div class="links-container">
       <a href="https://www.dataviz.jp/" target="_blank" rel="noreferrer noopener">Dataviz.jp</a>

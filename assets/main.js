@@ -330,26 +330,69 @@ toggleCurrentPreviewButton.on("click", function () {
   }
 });
 
-downloadSvgButton.on("click", downloadCurrentSvg);
-downloadPngButton.on("click", downloadCurrentPng);
 downloadDataButton.on("click", downloadCurrentDatasetCsv);
 
+// Cloud Load Button Logic
 loadProjectButton.on("click", function () {
-  var node = projectFileInput.node();
-  if (node) {
-    node.click();
-  }
+  var modalEl = document.getElementById('projectListModal');
+  var modal = new bootstrap.Modal(modalEl);
+  modal.show();
+
+  var listGroup = d3.select("#project-list-group");
+  listGroup.html('<p class="text-center text-muted p-4">読み込み中...</p>');
+
+  CloudApi.getProjects()
+    .then(function (projects) {
+      if (!projects || projects.length === 0) {
+        listGroup.html('<p class="text-center text-muted p-4">保存されたプロジェクトはありません。</p>');
+        return;
+      }
+
+      listGroup.html("");
+
+      var items = listGroup.selectAll("button")
+        .data(projects)
+        .enter()
+        .append("button")
+        .attr("class", "list-group-item list-group-item-action d-flex justify-content-between align-items-center")
+        .attr("type", "button")
+        .on("click", function (d) {
+          if (!confirm("「" + d.name + "」を読み込みますか？現在の作業内容は上書きされます。")) {
+            return;
+          }
+          var btn = d3.select(this);
+          btn.text("読み込み中...").property("disabled", true);
+
+          CloudApi.loadProject(d.id)
+            .then(function (projectData) {
+              restoreProjectState(projectData);
+              modal.hide();
+            })
+            .catch(function (err) {
+              console.error(err);
+              alert("読み込みに失敗しました: " + err.message);
+              btn.text(d.name).property("disabled", false);
+            });
+        });
+
+      items.append("div")
+        .html(function (d) {
+          var dateStr = d.updated_at ? new Date(d.updated_at).toLocaleString() : "";
+          return '<div class="fw-bold">' + (d.name || "名称未設定") + '</div>' +
+            '<small class="text-muted">' + dateStr + '</small>';
+        });
+    })
+    .catch(function (err) {
+      console.error(err);
+      listGroup.html('<p class="text-center text-danger p-4">プロジェクト一覧の取得に失敗しました。<br>' + err.message + '</p>');
+    });
 });
 
-projectFileInput.on("change", function () {
-  var file = this.files && this.files[0];
-  if (file) {
-    loadProjectFile(file);
-  }
-  this.value = "";
-});
+// Remove local file input listener as we moved to cloud
+projectFileInput.on("change", null);
 
-saveProjectButton.on("click", saveProjectFile);
+// Cloud Save Button Logic
+saveProjectButton.on("click", saveProjectToCloud);
 
 applyButton.on("click", applyPendingData);
 resetButton.on("click", resetToSampleData);
@@ -1586,6 +1629,99 @@ function loadProjectFile(file) {
     }
   };
   reader.readAsText(file);
+}
+
+/* Cloud Project Functions */
+
+function setButtonLoading(btn, isLoading) {
+  if (isLoading) {
+    if (!btn.attr("data-original-text")) {
+      btn.attr("data-original-text", btn.text());
+    }
+    btn.text("処理中...").property("disabled", true);
+  } else {
+    var originalText = btn.attr("data-original-text");
+    if (originalText) btn.text(originalText);
+    btn.property("disabled", false);
+  }
+}
+
+function getThumbnailBlob() {
+  return new Promise(function (resolve, reject) {
+    var svgNode = document.getElementById("map");
+    if (!svgNode) return resolve(null);
+    var serialized = serializeSvg(svgNode);
+    var dims = extractSvgDimensions(svgNode);
+    var svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
+    var url = URL.createObjectURL(svgBlob);
+    var image = new Image();
+    image.onload = function () {
+      var canvas = document.createElement("canvas");
+      canvas.width = dims.width;
+      canvas.height = dims.height;
+      var ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height); // 白背景
+      ctx.drawImage(image, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (blob) {
+        resolve(blob);
+      }, "image/png");
+    };
+    image.onerror = function (e) {
+      console.warn("Thumbnail generation failed", e);
+      resolve(null);
+    };
+    image.src = url;
+  });
+}
+
+function saveProjectToCloud() {
+  if (!rawData || !rawData.length) {
+    alert("保存するデータがありません。");
+    return;
+  }
+
+  var defaultName = currentDatasetName || "名称未設定";
+  var fieldName = (field && field.name && field.id !== "none") ? field.name : "データ未選択";
+  var modeName = currentMode === "ranking" ? "ランキング" : "実数";
+  var dateStr = d3.timeFormat("%y%m%d")(new Date());
+  var suggestedName = "日本_" + fieldName + "_" + modeName + "_" + dateStr;
+
+  var projectName = prompt("プロジェクト名を入力してください", suggestedName);
+  if (projectName === null) return;
+
+  setButtonLoading(saveProjectButton, true);
+
+  var saveData = {
+    version: "1.0",
+    timestamp: Date.now(),
+    meta: {
+      datasetName: currentDatasetName
+    },
+    data: rawData,
+    config: {
+      fieldKey: field ? field.key : null,
+      colorSchemeId: currentColorScheme ? currentColorScheme.id : null,
+      legendCells: currentLegendCells,
+      legendUnit: legendUnit,
+      displayMode: currentMode,
+      showPlaceLabels: placeNameToggle.property("checked")
+    }
+  };
+
+  getThumbnailBlob().then(function (thumbnailBlob) {
+    CloudApi.saveProject(saveData, projectName, thumbnailBlob)
+      .then(function () {
+        alert("プロジェクト「" + projectName + "」を保存しました。");
+        setButtonLoading(saveProjectButton, false);
+      })
+      .catch(function (err) {
+        console.error(err);
+        alert("保存に失敗しました: " + err.message);
+        setButtonLoading(saveProjectButton, false);
+      });
+  });
 }
 
 function restoreProjectState(projectData) {
