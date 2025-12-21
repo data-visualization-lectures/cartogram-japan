@@ -1704,6 +1704,42 @@ function getThumbnailBlob() {
   });
 }
 
+// Toast Notification
+function showToast(message, type) {
+  var container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  var toast = document.createElement("div");
+  // Use custom-toast to avoid conflicts
+  toast.className = "custom-toast toast-" + (type || "info");
+
+  var iconHtml = "";
+  if (type === "success") {
+    iconHtml = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+  } else if (type === "error") {
+    iconHtml = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+  } else {
+    iconHtml = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+  }
+
+  toast.innerHTML = '<div class="toast-icon">' + iconHtml + '</div><div class="toast-message">' + message + '</div>';
+  container.appendChild(toast);
+
+  // Auto remove after 3s
+  setTimeout(function () {
+    toast.classList.add("toast-hiding");
+    toast.addEventListener("animationend", function () {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    });
+  }, 3000);
+}
+
 function saveProjectToCloud() {
   if (!rawData || !rawData.length) {
     alert("保存するデータがありません。");
@@ -1741,12 +1777,12 @@ function saveProjectToCloud() {
   getThumbnailBlob().then(function (thumbnailBlob) {
     CloudApi.saveProject(saveData, projectName, thumbnailBlob)
       .then(function () {
-        alert("プロジェクト「" + projectName + "」を保存しました。");
+        showToast("プロジェクト「" + projectName + "」を保存しました。", "success");
         setButtonLoading(saveProjectButton, false);
       })
       .catch(function (err) {
         console.error(err);
-        alert("保存に失敗しました: " + err.message);
+        showToast("保存に失敗しました: " + err.message, "error");
         setButtonLoading(saveProjectButton, false);
       });
   });
