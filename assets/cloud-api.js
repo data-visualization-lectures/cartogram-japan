@@ -38,21 +38,25 @@ var CloudApi = (function () {
         console.log("Fetching projects...");
         try {
             var config = await getSupabaseConfig();
-            var endpoint = config.supabaseUrl + "/rest/v1/projects?select=id,name,created_at,updated_at,thumbnail_path&app_name=eq." + APP_NAME + "&order=updated_at.desc&apikey=" + config.supabaseKey;
 
-            var response = await fetch(endpoint, {
+            // Fetch projects from API
+            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects?app=' + APP_NAME;
+            var response = await fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
+                    'Authorization': 'Bearer ' + config.accessToken,
                     'Content-Type': 'application/json'
                 }
             });
 
             if (!response.ok) {
-                throw new Error("Projects fetch failed: " + response.status);
+                var errorData = await response.json().catch(function () { return {}; });
+                throw new Error("API fetch failed: " + response.status + " - " + (errorData.error || errorData.detail || ''));
             }
 
             var data = await response.json();
-            return data;
+            // API returns { "projects": [...] } format
+            return data.projects || data;
         } catch (error) {
             console.error(error);
             throw error;
@@ -70,73 +74,61 @@ var CloudApi = (function () {
         });
     }
 
+    // Convert Blob to Base64 Data URI
+    function blobToBase64DataUri(blob) {
+        return new Promise(function (resolve, reject) {
+            var reader = new FileReader();
+            reader.onloadend = function () {
+                resolve(reader.result); // "data:image/png;base64,..."
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
     async function saveProject(projectData, projectName, thumbnailBlob) {
         console.log("Saving project...");
         try {
             var config = await getSupabaseConfig();
             var id = projectData.id || generateUUID();
-            var now = new Date().toISOString();
-            var jsonFilePath = config.user.id + "/" + id + ".json";
-            var thumbFilePath = config.user.id + "/" + id + ".png";
 
-            // 1. Upload JSON to Storage
-            var jsonEndpoint = config.supabaseUrl + "/storage/v1/object/" + BUCKET_NAME + "/" + jsonFilePath + "?apikey=" + config.supabaseKey;
-            var jsonResponse = await fetch(jsonEndpoint, {
+            // Convert thumbnail Blob to Base64 Data URI if provided
+            var thumbnailDataUri = null;
+            if (thumbnailBlob) {
+                thumbnailDataUri = await blobToBase64DataUri(thumbnailBlob);
+            }
+
+            // Prepare API request payload
+            var payload = {
+                name: projectName || 'Untitled Project',
+                app_name: APP_NAME,
+                data: projectData,
+                thumbnail: thumbnailDataUri
+            };
+
+            // If updating existing project, include ID
+            if (projectData.id) {
+                payload.id = projectData.id;
+            }
+
+            // Send to API endpoint
+            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects';
+            var apiResponse = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + config.accessToken,
-                    'Content-Type': 'application/json',
-                    'x-upsert': 'true'
-                },
-                body: JSON.stringify(projectData)
-            });
-
-            if (!jsonResponse.ok) {
-                throw new Error("Storage upload failed: " + jsonResponse.status);
-            }
-
-            // 2. Upload Thumbnail (Optional)
-            if (thumbnailBlob) {
-                var thumbEndpoint = config.supabaseUrl + "/storage/v1/object/" + BUCKET_NAME + "/" + thumbFilePath + "?apikey=" + config.supabaseKey;
-                await fetch(thumbEndpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + config.accessToken,
-                        'Content-Type': 'image/png',
-                        'x-upsert': 'true'
-                    },
-                    body: thumbnailBlob
-                });
-            }
-
-            // 3. Save Metadata to DB
-            var payload = {
-                id: id,
-                user_id: config.user.id,
-                name: projectName || 'Untitled Project',
-                storage_path: jsonFilePath,
-                thumbnail_path: thumbnailBlob ? thumbFilePath : null,
-                app_name: APP_NAME,
-                created_at: projectData.created_at || now,
-                updated_at: now
-            };
-
-            var dbEndpoint = config.supabaseUrl + "/rest/v1/projects?apikey=" + config.supabaseKey;
-            var dbResponse = await fetch(dbEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates,return=representation'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
             });
 
-            if (!dbResponse.ok) {
-                throw new Error("DB save failed: " + dbResponse.status);
+            if (!apiResponse.ok) {
+                var errorData = await apiResponse.json().catch(function () { return {}; });
+                throw new Error("API save failed: " + apiResponse.status + " - " + (errorData.error || errorData.detail || ''));
             }
 
-            var result = await dbResponse.json();
-            return result && result.length > 0 ? result[0] : null;
+            var result = await apiResponse.json();
+            return result.project || result;
 
         } catch (error) {
             console.error(error);
@@ -149,31 +141,23 @@ var CloudApi = (function () {
         try {
             var config = await getSupabaseConfig();
 
-            // 1. Get storage path from DB
-            var dbEndpoint = config.supabaseUrl + "/rest/v1/projects?select=storage_path&id=eq." + projectId + "&apikey=" + config.supabaseKey;
-            var dbResponse = await fetch(dbEndpoint, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!dbResponse.ok) throw new Error("DB fetch failed: " + dbResponse.status);
-            var rows = await dbResponse.json();
-            if (!rows.length) throw new Error("Project not found");
-
-            var storagePath = rows[0].storage_path;
-
-            // 2. Download from Storage
-            var storageEndpoint = config.supabaseUrl + "/storage/v1/object/" + BUCKET_NAME + "/" + storagePath + "?apikey=" + config.supabaseKey;
-            var storageResponse = await fetch(storageEndpoint, {
+            // Fetch project data from API
+            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects/' + projectId;
+            var apiResponse = await fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + config.accessToken
+                    'Authorization': 'Bearer ' + config.accessToken,
+                    'Content-Type': 'application/json'
                 }
             });
 
-            if (!storageResponse.ok) throw new Error("Storage download failed: " + storageResponse.status);
+            if (!apiResponse.ok) {
+                var errorData = await apiResponse.json().catch(function () { return {}; });
+                throw new Error("API load failed: " + apiResponse.status + " - " + (errorData.error || errorData.detail || ''));
+            }
 
-            return await storageResponse.json();
+            // API returns the project data directly
+            return await apiResponse.json();
         } catch (error) {
             console.error(error);
             throw error;
@@ -185,11 +169,42 @@ var CloudApi = (function () {
         console.log("Delete not implemented in this minimal version.");
     }
 
+    async function getThumbnail(projectId) {
+        console.log("Fetching thumbnail for project: " + projectId);
+        try {
+            var config = await getSupabaseConfig();
+
+            // Fetch thumbnail from API
+            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects/' + projectId + '/thumbnail';
+            var response = await fetch(apiEndpoint, {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + config.accessToken
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log("No thumbnail found for project: " + projectId);
+                    return null; // サムネイルなし
+                }
+                throw new Error("Thumbnail fetch failed: " + response.status);
+            }
+
+            // Return the image blob
+            return await response.blob();
+        } catch (error) {
+            console.error(error);
+            return null;
+        }
+    }
+
     return {
         getProjects: getProjects,
         saveProject: saveProject,
         loadProject: loadProject,
-        deleteProject: deleteProject
+        deleteProject: deleteProject,
+        getThumbnail: getThumbnail
     };
 
 })();
