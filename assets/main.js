@@ -446,14 +446,14 @@ d3.json("data/japan.topojson", function (topo) {
     var params = new URLSearchParams(window.location.search);
     var projectId = params.get("project_id");
 
-    if (projectId && window.supabase) {
+    if (projectId && window.datavizSupabase) {
       console.log("Found project_id:", projectId);
 
       // Poll for auth session ready
       var checkAuthInterval = setInterval(function () {
-        if (!window.supabase || !window.supabase.auth) return;
+        if (!window.datavizSupabase || !window.datavizSupabase.auth) return;
 
-        window.supabase.auth.getSession().then(function (res) {
+        window.datavizSupabase.auth.getSession().then(function (res) {
           if (res.data.session) {
             clearInterval(checkAuthInterval);
             console.log("Session found, loading project...");

@@ -4,9 +4,9 @@ var CloudApi = (function () {
     var BUCKET_NAME = 'user_projects';
 
     // Helper to get configuration and session
-    // dataviz-auth-client.js が window.supabase を初期化している前提
+    // dataviz-auth-client.js が window.datavizSupabase を初期化している前提
     async function getSupabaseConfig() {
-        var globalAuthClient = window.supabase;
+        var globalAuthClient = window.datavizSupabase;
         if (!globalAuthClient || !globalAuthClient.auth) {
             throw new Error("認証クライアントが読み込まれていません。ページをリロードしてください。");
         }
