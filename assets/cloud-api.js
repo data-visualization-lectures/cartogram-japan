@@ -7,6 +7,7 @@ var CloudApi = (function () {
     // dataviz-auth-client.js が window.datavizSupabase を初期化している前提
     async function getSupabaseConfig() {
         var globalAuthClient = window.datavizSupabase;
+        var apiUrl = window.datavizApiUrl;
         if (!globalAuthClient || !globalAuthClient.auth) {
             throw new Error("認証クライアントが読み込まれていません。ページをリロードしてください。");
         }
@@ -29,6 +30,7 @@ var CloudApi = (function () {
         return {
             supabaseUrl: supabaseUrl,
             supabaseKey: supabaseKey,
+            apiUrl: apiUrl,
             accessToken: session.access_token,
             user: session.user
         };
@@ -40,7 +42,7 @@ var CloudApi = (function () {
             var config = await getSupabaseConfig();
 
             // Fetch projects from API
-            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects?app=' + APP_NAME;
+            var apiEndpoint = (config.apiUrl || "https://api.dataviz.jp") + '/api/projects?app=' + APP_NAME;
             var response = await fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
@@ -112,7 +114,7 @@ var CloudApi = (function () {
             }
 
             // Send to API endpoint
-            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects';
+            var apiEndpoint = (config.apiUrl || "https://api.dataviz.jp") + '/api/projects';
             var apiResponse = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
@@ -142,7 +144,7 @@ var CloudApi = (function () {
             var config = await getSupabaseConfig();
 
             // Fetch project data from API
-            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects/' + projectId;
+            var apiEndpoint = (config.apiUrl || "https://api.dataviz.jp") + '/api/projects/' + projectId;
             var apiResponse = await fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
@@ -175,7 +177,7 @@ var CloudApi = (function () {
             var config = await getSupabaseConfig();
 
             // Fetch thumbnail from API
-            var apiEndpoint = config.supabaseUrl.replace('vebhoeiltxspsurqoxvl.supabase.co', 'api.dataviz.jp') + '/api/projects/' + projectId + '/thumbnail';
+            var apiEndpoint = (config.apiUrl || "https://api.dataviz.jp") + '/api/projects/' + projectId + '/thumbnail';
             var response = await fetch(apiEndpoint, {
                 method: 'GET',
                 headers: {
