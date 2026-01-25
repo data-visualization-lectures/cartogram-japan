@@ -62,6 +62,8 @@ function minifyHTML(inputFile, outputFile, options) {
       html = html.replace(/docs\/app\.min\.js/g, 'app.min.js');
       html = html.replace(/vendor\/supabase\.js/g, 'vendor/supabase.js');
       html = html.replace(/vendor\/dataviz-auth-client\.js/g, 'vendor/dataviz-auth-client.js');
+      html = html.replace(/docs\/vendor\/supabase\.js/g, 'vendor/supabase.js');
+      html = html.replace(/docs\/vendor\/dataviz-auth-client\.js/g, 'vendor/dataviz-auth-client.js');
     }
     fs.writeFileSync(outputFile, html, 'utf8');
     console.log(`✓ Minified: ${inputFile} → ${outputFile}`);
@@ -80,6 +82,7 @@ const jsFilesToConcat = [
   'vendor/d3-scale-chromatic.v1.min.js',
   'vendor/topojson.v2.min.js',
   'assets/d3-legend.min.js',
+  'assets/cloud-api.js',
   'assets/topogram.js',
   'assets/main.js'
 ];
@@ -144,6 +147,32 @@ try {
   console.log(`✓ Copied: vendor → docs/vendor`);
 } catch (error) {
   console.warn('⚠️  vendor copy skipped:', error.message);
+}
+
+// Copy additional vendor files
+const vendorFiles = [
+  'supabase.js',
+  'dataviz-auth-client.js'
+];
+
+try {
+  const vendorDest = path.join(distDir, 'vendor');
+  if (!fs.existsSync(vendorDest)) {
+    fs.mkdirSync(vendorDest);
+  }
+
+  vendorFiles.forEach(file => {
+    const src = path.join(__dirname, 'vendor', file);
+    const dest = path.join(vendorDest, file);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+      console.log(`✓ Copied: vendor/${file} → docs/vendor/${file}`);
+    } else {
+      console.warn(`⚠️  File not found: vendor/${file}`);
+    }
+  });
+} catch (error) {
+  console.warn('⚠️  Vendor file copy skipped:', error.message);
 }
 
 console.log('');
