@@ -48,6 +48,9 @@ npm run build
 
 `docs/` を公開するには `npx serve docs` のように出力フォルダを指定してください。
 
+http://localhost:3000/?auth_debug
+
+
 ### リモートビルド・デプロイ
 
 Webサーバにデプロイする際は、以下のファイルをアップロードしてください：
