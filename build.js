@@ -60,6 +60,8 @@ function minifyHTML(inputFile, outputFile, options) {
     if (options && options.stripDocsPrefix) {
       html = html.replace(/docs\/style\.min\.css/g, 'style.min.css');
       html = html.replace(/docs\/app\.min\.js/g, 'app.min.js');
+      html = html.replace(/vendor\/supabase\.js/g, 'vendor/supabase.js');
+      html = html.replace(/vendor\/dataviz-auth-client\.js/g, 'vendor/dataviz-auth-client.js');
     }
     fs.writeFileSync(outputFile, html, 'utf8');
     console.log(`✓ Minified: ${inputFile} → ${outputFile}`);
@@ -133,14 +135,15 @@ try {
 }
 
 try {
-  const cnameSrc = path.join(__dirname, 'CNAME');
-  const cnameDest = path.join(distDir, 'CNAME');
-  if (fs.existsSync(cnameSrc)) {
-    fs.copyFileSync(cnameSrc, cnameDest);
-    console.log(`✓ Copied: CNAME → docs/CNAME`);
+  const vendorSrc = path.join(__dirname, 'vendor');
+  const vendorDest = path.join(distDir, 'vendor');
+  if (fs.existsSync(vendorDest)) {
+    fs.rmSync(vendorDest, { recursive: true, force: true });
   }
+  fs.cpSync(vendorSrc, vendorDest, { recursive: true });
+  console.log(`✓ Copied: vendor → docs/vendor`);
 } catch (error) {
-  console.warn('⚠️  CNAME copy skipped:', error.message);
+  console.warn('⚠️  vendor copy skipped:', error.message);
 }
 
 console.log('');
