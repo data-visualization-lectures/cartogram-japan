@@ -1662,6 +1662,10 @@ function loadProjectFile(file) {
 /* Cloud Project Functions */
 
 function setButtonLoading(btn, isLoading) {
+  // Check if button selection is empty
+  if (!btn || btn.empty()) {
+    return;
+  }
   if (isLoading) {
     if (!btn.attr("data-original-text")) {
       btn.attr("data-original-text", btn.text());
