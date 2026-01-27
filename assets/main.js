@@ -1852,3 +1852,30 @@ function restoreProjectState(projectData) {
   // かつ deferredUpdate() がトリガーされて地図が再描画されます。
   updateFieldSelection();
 }
+
+// --- Dataviz Tool Header Integration ---
+customElements.whenDefined('dataviz-tool-header').then(function() {
+  var toolHeader = document.querySelector('dataviz-tool-header');
+  if (toolHeader) {
+    var handleSave = function() { 
+      saveProjectToCloud();
+    };
+    var handleLoad = function() { 
+      if (loadProjectButton.node()) {
+        loadProjectButton.node().click(); 
+      }
+    };
+
+    toolHeader.setConfig({
+      logo: {
+        type: 'text',
+        text: '日本地図カルトグラム',
+        textClass: 'font-bold text-lg text-white'
+      },
+      buttons: [
+        { label: 'プロジェクトの保存', action: handleSave },
+        { label: 'プロジェクトの読込', action: handleLoad }
+      ]
+    });
+  }
+});
