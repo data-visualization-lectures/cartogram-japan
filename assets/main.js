@@ -1709,40 +1709,6 @@ function getThumbnailBlob() {
 }
 
 // Toast Notification
-function showToast(message, type) {
-  var container = document.querySelector(".toast-container");
-  if (!container) {
-    container = document.createElement("div");
-    container.className = "toast-container";
-    document.body.appendChild(container);
-  }
-
-  var toast = document.createElement("div");
-  // Use custom-toast to avoid conflicts
-  toast.className = "custom-toast toast-" + (type || "info");
-
-  var iconHtml = "";
-  if (type === "success") {
-    iconHtml = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-  } else if (type === "error") {
-    iconHtml = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
-  } else {
-    iconHtml = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
-  }
-
-  toast.innerHTML = '<div class="toast-icon">' + iconHtml + '</div><div class="toast-message">' + message + '</div>';
-  container.appendChild(toast);
-
-  // Auto remove after 3s
-  setTimeout(function () {
-    toast.classList.add("toast-hiding");
-    toast.addEventListener("animationend", function () {
-      if (toast.parentNode) {
-        toast.parentNode.removeChild(toast);
-      }
-    });
-  }, 3000);
-}
 
 function saveProjectToCloud() {
   if (!rawData || !rawData.length) {
@@ -1781,12 +1747,18 @@ function saveProjectToCloud() {
   getThumbnailBlob().then(function (thumbnailBlob) {
     CloudApi.saveProject(saveData, projectName, thumbnailBlob)
       .then(function () {
-        showToast("プロジェクト「" + projectName + "」を保存しました。", "success");
+        var toolHeader = document.querySelector('dataviz-tool-header');
+        if (toolHeader) {
+          toolHeader.showMessage("プロジェクト「" + projectName + "」を保存しました。", "success");
+        }
         setButtonLoading(saveProjectButton, false);
       })
       .catch(function (err) {
         console.error(err);
-        showToast("保存に失敗しました: " + err.message, "error");
+        var toolHeader = document.querySelector('dataviz-tool-header');
+        if (toolHeader) {
+          toolHeader.showMessage("保存に失敗しました: " + err.message, "error");
+        }
         setButtonLoading(saveProjectButton, false);
       });
   });
@@ -1861,13 +1833,62 @@ function restoreProjectState(projectData) {
 customElements.whenDefined('dataviz-tool-header').then(function() {
   var toolHeader = document.querySelector('dataviz-tool-header');
   if (toolHeader) {
-    var handleSave = function() { 
+    var handleSave = function() {
       saveProjectToCloud();
     };
-    var handleLoad = function() { 
-      if (loadProjectButton.node()) {
-        loadProjectButton.node().click(); 
-      }
+    var handleLoad = function() {
+      var modalEl = document.getElementById('projectListModal');
+      var modal = new bootstrap.Modal(modalEl);
+      modal.show();
+
+      var listGroup = d3.select("#project-list-group");
+      listGroup.html('<p class="text-center text-muted p-4">読み込み中...</p>');
+
+      CloudApi.getProjects()
+        .then(function (projects) {
+          if (!projects || projects.length === 0) {
+            listGroup.html('<p class="text-center text-muted p-4">保存されたプロジェクトはありません。</p>');
+            return;
+          }
+
+          listGroup.html("");
+
+          var items = listGroup.selectAll("button")
+            .data(projects)
+            .enter()
+            .append("button")
+            .attr("class", "list-group-item list-group-item-action d-flex justify-content-between align-items-center")
+            .attr("type", "button")
+            .on("click", function (d) {
+              if (!confirm("「" + d.name + "」を読み込みますか？現在の作業内容は上書きされます。")) {
+                return;
+              }
+              var btn = d3.select(this);
+              btn.text("読み込み中...").property("disabled", true);
+
+              CloudApi.loadProject(d.id)
+                .then(function (projectData) {
+                  restoreProjectState(projectData);
+                  modal.hide();
+                })
+                .catch(function (err) {
+                  console.error(err);
+                  alert("読み込みに失敗しました: " + err.message);
+                  btn.text(d.name).property("disabled", false);
+                });
+            });
+
+          items.append("div")
+            .html(function (d) {
+              var dateStr = d.updated_at ? new Date(d.updated_at).toLocaleString() : "";
+              return '<div class="fw-bold">' + (d.name || "名称未設定") + '</div>' +
+                '<small class="text-muted">' + dateStr + '</small>';
+            });
+        })
+        .catch(function (err) {
+          console.error(err);
+          listGroup.html('<p class="text-center text-danger p-4">プロジェクト一覧の取得に失敗しました。<br>' + err.message + '</p>');
+        });
     };
 
     toolHeader.setConfig({
