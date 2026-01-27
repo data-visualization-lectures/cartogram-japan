@@ -1830,13 +1830,13 @@ function restoreProjectState(projectData) {
 }
 
 // --- Dataviz Tool Header Integration ---
-customElements.whenDefined('dataviz-tool-header').then(function() {
+customElements.whenDefined('dataviz-tool-header').then(function () {
   var toolHeader = document.querySelector('dataviz-tool-header');
   if (toolHeader) {
-    var handleSave = function() {
+    var handleSave = function () {
       saveProjectToCloud();
     };
-    var handleLoad = function() {
+    var handleLoad = function () {
       var modalEl = document.getElementById('projectListModal');
       var modal = new bootstrap.Modal(modalEl);
       modal.show();
@@ -1898,8 +1898,14 @@ customElements.whenDefined('dataviz-tool-header').then(function() {
         textClass: 'font-bold text-lg text-white'
       },
       buttons: [
-        { label: 'プロジェクトの保存', action: handleSave },
-        { label: 'プロジェクトの読込', action: handleLoad }
+        { label: 'プロジェクトの読込', action: handleLoad, align: 'right' },
+        { label: 'プロジェクトの保存', action: handleSave, align: 'right' },
+        {
+          label: 'ヘルプ',
+          type: 'link',
+          href: '/tutorials/cartogram-japan/',
+          align: 'right'
+        }
       ]
     });
   }
