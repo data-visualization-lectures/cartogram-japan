@@ -1899,13 +1899,7 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
       },
       buttons: [
         { label: 'プロジェクトの読込', action: handleLoad, align: 'right' },
-        { label: 'プロジェクトの保存', action: handleSave, align: 'right' },
-        {
-          label: 'ヘルプ',
-          type: 'link',
-          href: '/tutorials/cartogram-japan/',
-          align: 'right'
-        }
+        { label: 'プロジェクトの保存', action: handleSave, align: 'right' }
       ]
     });
   }
