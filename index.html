@@ -114,16 +114,28 @@
                   <label for="legend-unit">単位</label>
                   <input id="legend-unit" type="text" maxlength="16" placeholder="例：円">
                 </div>
+                <select id="display-mode" aria-label="表示モード">
+                  <option value="value" selected>実数モード</option>
+                  <option value="ranking">ランキングモード</option>
+                </select>
+                <select id="classification-method" aria-label="分類方法">
+                  <option value="quantile" selected>等量分類 (Quantile)</option>
+                  <option value="equal">等間隔分類 (Equal Interval)</option>
+                  <option value="jenks">自然分類 (Jenks)</option>
+                  <option value="msd">標準偏差 (Mean-Std Dev)</option>
+                  <option value="geometric">幾何学的分類 (Geometric)</option>
+                  <option value="headtail">ヘッドテール分類 (Head/Tail)</option>
+                  <option value="pretty">きりのよい分類 (Pretty)</option>
+                  <option value="arithmetic">等差分類 (Arithmetic)</option>
+                  <option value="nestedmeans">入れ子平均 (Nested Means)</option>
+                  <option value="q6">Q6分類 (Q6)</option>
+                </select>
                 <select id="legend-cells" aria-label="凡例の色数">
                   <option value="3">3色</option>
                   <option value="4">4色</option>
                   <option value="5" selected>5色</option>
                   <option value="6">6色</option>
                   <option value="7">7色</option>
-                </select>
-                <select id="display-mode" aria-label="表示モード">
-                  <option value="value" selected>実数モード</option>
-                  <option value="ranking">ランキングモード</option>
                 </select>
                 <select id="color-scheme" aria-label="カラースキーム"></select>
                 <label class="map-toggle form-check-label">

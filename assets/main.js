@@ -64,7 +64,8 @@ var fields = [],
   legendUnit = "",
   legendUnitCache = "",
   currentMode = "value",
-  currentLegendBoundaries = null;
+  currentClassificationMethod = "quantile",
+  currentBreaks = null;
 
 var body = d3.select("body"),
   stat = d3.select("#status");
@@ -86,6 +87,7 @@ var fileInput = d3.select("#file-input"),
   legendCellsSelect = d3.select("#legend-cells"),
   legendUnitInput = d3.select("#legend-unit"),
   displayModeSelect = d3.select("#display-mode"),
+  classMethodSelect = d3.select("#classification-method"),
   placeNameToggle = d3.select("#toggle-place-names"),
   downloadDataButton = d3.select("#download-data-csv"),
   loadProjectButton = d3.select("#btn-load-project"),
@@ -161,6 +163,49 @@ function initializeColorSchemeOptions() {
   }
 }
 
+function initializeClassificationMethodOptions() {
+  var methods = SettingClass.CLASSIFICATION_METHODS;
+  classMethodSelect.selectAll("option").remove();
+  Object.keys(methods).forEach(function (key) {
+    if (key === "custom") return;
+    classMethodSelect.append("option")
+      .attr("value", key)
+      .text(methods[key]);
+  });
+  classMethodSelect.property("value", currentClassificationMethod);
+  updateLegendCellsForMethod();
+}
+
+function updateLegendCellsForMethod() {
+  var method = currentClassificationMethod;
+  legendCellsSelect.selectAll("option").each(function () {
+    var option = d3.select(this);
+    var value = +option.attr("value");
+    if (method === "q6") {
+      option.attr("disabled", value !== 6 ? true : null);
+    } else if (method === "nestedmeans") {
+      option.attr("disabled", value !== 4 ? true : null);
+    } else if (currentMode === "ranking") {
+      option.attr("disabled", value % 2 === 0 ? true : null);
+    } else {
+      option.attr("disabled", null);
+    }
+  });
+  if (method === "q6") {
+    legendCellsSelect.property("value", 6);
+    currentLegendCells = 6;
+  } else if (method === "nestedmeans") {
+    legendCellsSelect.property("value", 4);
+    currentLegendCells = 4;
+  } else if (currentMode === "ranking") {
+    var currentValue = +legendCellsSelect.property("value");
+    if (currentValue % 2 === 0) {
+      legendCellsSelect.property("value", 5);
+      currentLegendCells = 5;
+    }
+  }
+}
+
 function setColorScheme(id, options) {
   if (!COLOR_SCHEMES.length) {
     currentColorScheme = null;
@@ -191,14 +236,16 @@ function setDisplayMode(mode) {
     legendUnitInput
       .property("value", legendUnit)
       .property("disabled", true);
+    classMethodSelect.property("disabled", true);
   } else {
     legendUnit = legendUnitCache || "";
     legendUnitInput
       .property("value", legendUnit)
       .property("disabled", false);
+    classMethodSelect.property("disabled", false);
   }
   initializeColorSchemeOptions();
-  updateLegendCellsOptions();
+  updateLegendCellsForMethod();
   if (field && field.id !== "none") {
     deferredUpdate();
   }
@@ -223,6 +270,7 @@ var fieldSelect = d3.select("#field")
       legendCellsSelect.property("disabled", false);
       colorSchemeSelect.property("disabled", false);
       displayModeSelect.property("disabled", false);
+      classMethodSelect.property("disabled", currentMode === "ranking");
       initializeColorSchemeOptions();
     }
     updateFieldSelection();
@@ -232,6 +280,15 @@ displayModeSelect.on("change", function () {
   setDisplayMode(this.value);
 });
 
+classMethodSelect.on("change", function () {
+  currentClassificationMethod = this.value;
+  updateLegendCellsForMethod();
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
+});
+
+initializeClassificationMethodOptions();
 setDisplayMode(currentMode);
 
 legendCellsSelect.on("change", function () {
@@ -256,31 +313,7 @@ placeNameToggle.on("change", function () {
 });
 
 function updateLegendCellsOptions() {
-  var isRanking = currentMode === "ranking";
-  var oddDefault = null;
-  legendCellsSelect.selectAll("option").each(function () {
-    var option = d3.select(this);
-    var value = +option.attr("value");
-    var isOdd = value % 2 === 1;
-    if (isRanking && !isOdd) {
-      option.attr("disabled", true);
-    } else {
-      option.attr("disabled", null);
-    }
-    if (isOdd && oddDefault === null) {
-      oddDefault = value;
-    }
-  });
-  if (isRanking) {
-    var currentValue = +legendCellsSelect.property("value");
-    if (currentValue % 2 === 0) {
-      legendCellsSelect.property("value", oddDefault || 3);
-      currentLegendCells = +legendCellsSelect.property("value");
-      if (field && field.id !== "none") {
-        deferredUpdate();
-      }
-    }
-  }
+  updateLegendCellsForMethod();
 }
 
 applyButton.property("disabled", true);
@@ -651,14 +684,27 @@ function update() {
     color = d3.scaleQuantize()
       .domain([legendMin, legendMax])
       .range(colorRange);
-    currentLegendBoundaries = null;
+    currentBreaks = null;
   } else {
     var colorSteps = Math.max(1, currentLegendCells);
-    var colorRange = buildColorSamples(colorInterpolator, colorSteps);
-    color = d3.scaleQuantize()
-      .domain([lo, hi])
-      .range(colorRange);
-    currentLegendBoundaries = null;
+    var classResult = SettingClass.classify(values, {
+      method: currentClassificationMethod,
+      nb: colorSteps
+    });
+    var actualClasses = classResult.nClasses || colorSteps;
+    var colorRange = buildColorSamples(colorInterpolator, actualClasses);
+
+    if (classResult.breaks && classResult.breaks.length >= 2 && classResult.innerBreaks && classResult.innerBreaks.length > 0) {
+      color = d3.scaleThreshold()
+        .domain(classResult.innerBreaks)
+        .range(colorRange);
+      currentBreaks = classResult.breaks;
+    } else {
+      color = d3.scaleQuantize()
+        .domain([lo, hi])
+        .range(colorRange);
+      currentBreaks = null;
+    }
   }
 
   // normalize the scale to positive numbers
@@ -699,7 +745,7 @@ function update() {
     })
     .attr("d", carto.path);
 
-  renderLegend(color, legendMin, legendMax, currentLegendBoundaries);
+  renderLegend(color, legendMin, legendMax, currentBreaks, colorRange);
 
   var delta = (Date.now() - start) / 1000;
   stat.text(["calculated in", delta.toFixed(1), "seconds"].join(" "));
@@ -786,6 +832,7 @@ function updateFieldSelection() {
   colorSchemeSelect.property("disabled", isNoField);
   legendCellsSelect.property("disabled", isNoField);
   displayModeSelect.property("disabled", isNoField);
+  classMethodSelect.property("disabled", isNoField || currentMode === "ranking");
 
   if (isNoField) {
     reset();
@@ -1360,16 +1407,13 @@ function resetMapVisualState() {
 }
 
 
-function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
-  if (!legendGroup || typeof d3.legendColor !== "function" || !colorScale) {
+function renderLegend(colorScale, minValue, maxValue, breaks, colorRange) {
+  if (!legendGroup || !colorScale) {
     return;
   }
 
   var legendFieldName = (field && field.name && field.id !== "none") ? field.name : "値";
   var formatValue = d3.format(",.0f");
-  function formatValueText(value) {
-    return formatValue(value);
-  }
 
   legendGroup.selectAll("*").remove();
 
@@ -1377,7 +1421,7 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
     .attr("class", "legend-content");
 
   var unitLabel = currentMode === "ranking" ? "位" : (legendUnit || "");
-  var rangeText = formatValueText(minValue) + " ～ " + formatValueText(maxValue);
+  var rangeText = formatValue(minValue) + " ～ " + formatValue(maxValue);
   var titleSuffix = unitLabel ? " " + unitLabel : "";
   legendContent.append("text")
     .attr("class", "legend-title")
@@ -1385,74 +1429,49 @@ function renderLegend(colorScale, minValue, maxValue, legendBoundaries) {
     .attr("y", 0)
     .text(legendFieldName + "（" + rangeText + titleSuffix + "）");
 
-  var barOffsetTop = 20;
-  var labelOffset = 18;
-  var labelBaseY = barOffsetTop + labelOffset;
-  var legend = d3.legendColor()
-    .shapeWidth(36)
-    .shapeHeight(12)
-    .labelFormat(formatValue)
-    .orient("horizontal")
-    .cells(currentLegendCells)
-    .scale(colorScale);
+  var entries;
+  if (breaks && colorRange && breaks.length >= 2) {
+    entries = SettingClass.breaksToLegend(breaks, colorRange);
+  } else {
+    var colors = colorScale.range() || [];
+    entries = colors.map(function (c, i) {
+      var extent = colorScale.invertExtent ? colorScale.invertExtent(c) : [minValue, maxValue];
+      var lo = extent && extent[0] != null ? extent[0] : minValue;
+      var hi = extent && extent[1] != null ? extent[1] : maxValue;
+      return {
+        color: c,
+        label: formatValue(lo) + " ～ " + formatValue(hi),
+        range: [lo, hi]
+      };
+    });
+  }
 
-  var legendScaleGroup = legendContent.append("g")
-    .attr("class", "legend-scale")
-    .attr("transform", "translate(0," + barOffsetTop + ")")
-    .call(legend);
+  var rowHeight = 22;
+  var swatchSize = 14;
+  var textOffsetX = swatchSize + 8;
+  var startY = 20;
 
-  legendScaleGroup.selectAll("rect.swatch")
-    .attr("stroke", "#cccccc")
-    .attr("stroke-width", 1)
-    .attr("shape-rendering", "crispEdges");
+  entries.forEach(function (entry, i) {
+    var y = startY + i * rowHeight;
+    legendContent.append("rect")
+      .attr("x", 0)
+      .attr("y", y)
+      .attr("width", swatchSize)
+      .attr("height", swatchSize)
+      .attr("fill", entry.color)
+      .attr("stroke", "#cccccc")
+      .attr("stroke-width", 1)
+      .attr("shape-rendering", "crispEdges");
 
-  var legendCells = legendScaleGroup.selectAll(".cell");
-  legendCells.select("text").remove();
-
-  var legendExtents = getLegendExtents(colorScale, minValue, maxValue, legendBoundaries);
-  legendCells.each(function (d, i) {
-    var cell = d3.select(this);
-    var rect = cell.select("rect");
-    var rectX = parseFloat(rect.attr("x")) || 0;
-    var rectY = parseFloat(rect.attr("y")) || 0;
-    var rectWidth = parseFloat(rect.attr("width")) || 36;
-    var rectHeight = parseFloat(rect.attr("height")) || 12;
-    var textY = rectY + rectHeight + 14;
-    var extent = legendExtents[i] || [minValue, maxValue];
-    var leftValue = extent[0];
-    var rightValue = extent[1];
-
-    var leftAnchorX = rectX;
-    var text = cell.append("text")
-      .attr("class", "legend-bound-left")
-      .attr("x", leftAnchorX)
-      .attr("y", textY)
-      .attr("text-anchor", "middle")
-      .text(formatValueText(leftValue));
-
-    if (currentMode !== "ranking") {
-      var labelRotation = -40;
-      var labelOffset = 4;
-      text.attr("transform", "rotate(" + labelRotation + " " + (leftAnchorX + labelOffset) + " " + textY + ")");
-      text.attr("dx", labelOffset);
+    var label = entry.label;
+    if (unitLabel) {
+      label = label + " " + unitLabel;
     }
-
-    if (i === legendExtents.length - 1) {
-      var rightAnchorX = rectX + rectWidth;
-      cell.append("text")
-        .attr("class", "legend-bound-right")
-        .attr("x", rightAnchorX)
-        .attr("y", textY)
-        .attr("text-anchor", "middle")
-        .text(formatValueText(rightValue));
-      if (currentMode !== "ranking") {
-        var labelRotation = -40;
-        var labelOffset = -4;
-        cell.select(".legend-bound-right")
-          .attr("transform", "rotate(" + labelRotation + " " + (rightAnchorX + labelOffset) + " " + textY + ")")
-          .attr("dx", labelOffset);
-      }
-    }
+    legendContent.append("text")
+      .attr("class", "legend-label")
+      .attr("x", textOffsetX)
+      .attr("y", y + swatchSize - 2)
+      .text(label);
   });
 
   var bbox = legendContent.node() && legendContent.node().getBBox ? legendContent.node().getBBox() : null;
@@ -1486,44 +1505,6 @@ function clearLegend() {
   if (legendGroup) {
     legendGroup.selectAll("*").remove();
   }
-}
-
-function getLegendExtents(colorScale, fallbackMin, fallbackMax, legendBoundaries) {
-  if (legendBoundaries && legendBoundaries.length) {
-    var extents = legendBoundaries.map(function (boundary, index) {
-      var high = legendBoundaries[index + 1] != null ? legendBoundaries[index + 1] : fallbackMax;
-      return [
-        boundary != null ? boundary : fallbackMin,
-        high
-      ];
-    });
-    if (extents.length) {
-      extents[0][0] = extents[0][0] != null ? extents[0][0] : fallbackMin;
-      extents[extents.length - 1][1] = fallbackMax;
-    }
-    return extents;
-  }
-  if (!colorScale || typeof colorScale.range !== "function") {
-    return [];
-  }
-  var colors = colorScale.range() || [];
-  if (!colors.length) {
-    return [];
-  }
-  var extents = colors.map(function (color) {
-    var extent = colorScale.invertExtent ? colorScale.invertExtent(color) : null;
-    var low = extent && extent[0] != null ? extent[0] : fallbackMin;
-    var high = extent && extent[1] != null ? extent[1] : fallbackMax;
-    return [low, high];
-  });
-  if (extents.length) {
-    extents[0][0] = extents[0][0] != null ? extents[0][0] : fallbackMin;
-    var lastExtent = extents[extents.length - 1];
-    if (lastExtent) {
-      lastExtent[1] = lastExtent[1] != null ? lastExtent[1] : fallbackMax;
-    }
-  }
-  return extents;
 }
 
 function augmentWithRankings(data) {
@@ -1621,7 +1602,8 @@ function saveProjectFile() {
       legendCells: currentLegendCells,
       legendUnit: legendUnit,
       displayMode: currentMode,
-      showPlaceLabels: placeNameToggle.property("checked")
+      showPlaceLabels: placeNameToggle.property("checked"),
+      classificationMethod: currentClassificationMethod
     }
   };
 
@@ -1742,7 +1724,8 @@ function saveProjectToCloud() {
       legendCells: currentLegendCells,
       legendUnit: legendUnit,
       displayMode: currentMode,
-      showPlaceLabels: placeNameToggle.property("checked")
+      showPlaceLabels: placeNameToggle.property("checked"),
+      classificationMethod: currentClassificationMethod
     }
   };
 
@@ -1818,6 +1801,13 @@ function restoreProjectState(projectData) {
   // 5. 地名ラベル (Place Labels)
   if (config.showPlaceLabels !== undefined) {
     placeNameToggle.property("checked", config.showPlaceLabels);
+  }
+
+  // 5.5. 分類方法 (Classification Method)
+  if (config.classificationMethod) {
+    currentClassificationMethod = config.classificationMethod;
+    classMethodSelect.property("value", currentClassificationMethod);
+    updateLegendCellsForMethod();
   }
 
   // 6. UI状態の更新 (プレビュー隠すなど)

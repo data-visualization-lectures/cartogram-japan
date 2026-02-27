@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const UglifyJS = require('uglify-js');
+const { minify: terserMinify } = require('terser');
 const CleanCSS = require('clean-css');
 
 // Create docs directory if it doesn't exist
@@ -77,7 +77,7 @@ const jsFilesToConcat = [
   'vendor/d3.v4.js',
   'vendor/d3-scale-chromatic.v1.min.js',
   'vendor/topojson.v2.min.js',
-  'assets/d3-legend.min.js',
+  'vendor/setting-class.iife.js',
   'assets/cloud-api.js',
   'assets/topogram.js',
   'assets/main.js'
@@ -90,6 +90,7 @@ const cssFiles = [
 let allSuccess = true;
 
 // Concatenate JS files and minify
+(async () => {
 try {
   let combinedCode = jsFilesToConcat
     .map(file => {
@@ -98,7 +99,7 @@ try {
     })
     .join('\n\n');
 
-  const result = UglifyJS.minify(combinedCode);
+  const result = await terserMinify(combinedCode);
 
   if (result.error) {
     console.error('Error minifying JS files:', result.error);
@@ -153,3 +154,4 @@ if (allSuccess) {
   console.log('✗ Build completed with errors.');
   process.exit(1);
 }
+})();
