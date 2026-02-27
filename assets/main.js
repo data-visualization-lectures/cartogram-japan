@@ -330,6 +330,8 @@ toggleCurrentPreviewButton.on("click", function () {
   }
 });
 
+downloadSvgButton.on("click", downloadCurrentSvg);
+downloadPngButton.on("click", downloadCurrentPng);
 downloadDataButton.on("click", downloadCurrentDatasetCsv);
 
 // Cloud Load Button Logic
