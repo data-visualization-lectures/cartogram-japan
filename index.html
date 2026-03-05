@@ -108,16 +108,19 @@
         <div class="map-card-header">
           <div class="map-heading">
             <div class="map-select">
-              <select id="field" aria-label="データ指標"></select>
-              <div class="map-controls">
+              <div class="field-group">
+                <select id="field" aria-label="データ指標"></select>
                 <div class="unit-field">
                   <label for="legend-unit">単位</label>
                   <input id="legend-unit" type="text" maxlength="16" placeholder="例：円">
                 </div>
+              </div>
+              <div class="map-controls">
                 <select id="display-mode" aria-label="表示モード">
                   <option value="value" selected>実数モード</option>
                   <option value="ranking">ランキングモード</option>
                 </select>
+                <label for="classification-method">分類方法</label>
                 <select id="classification-method" aria-label="分類方法">
                   <option value="quantile" selected>等量分類 (Quantile)</option>
                   <option value="equal">等間隔分類 (Equal Interval)</option>
@@ -130,6 +133,7 @@
                   <option value="nestedmeans">入れ子平均 (Nested Means)</option>
                   <option value="q6">Q6分類 (Q6)</option>
                 </select>
+                <label for="legend-cells">色数</label>
                 <select id="legend-cells" aria-label="凡例の色数">
                   <option value="3">3色</option>
                   <option value="4">4色</option>
@@ -137,6 +141,7 @@
                   <option value="6">6色</option>
                   <option value="7">7色</option>
                 </select>
+                <label for="color-scheme">カラースキーム</label>
                 <select id="color-scheme" aria-label="カラースキーム"></select>
                 <label class="map-toggle form-check-label">
                   <input id="toggle-place-names" type="checkbox" class="form-check-input">

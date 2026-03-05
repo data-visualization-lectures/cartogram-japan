@@ -1891,7 +1891,9 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
       },
       buttons: [
         { label: 'プロジェクトの読込', action: handleLoad, align: 'right' },
-        { label: 'プロジェクトの保存', action: handleSave, align: 'right' }
+        { label: 'プロジェクトの保存', action: handleSave, align: 'right' },
+        { label: 'カルトグラムとは', action: function() { window.open('https://visualizing.jp/cartogram/', '_blank'); }, align: 'right' },
+        { label: '階級分類とは', action: function() { window.open('https://classification.explorable-explanations.com/', '_blank'); }, align: 'right' }
       ]
     });
   }
