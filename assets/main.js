@@ -95,10 +95,10 @@ var fileInput = d3.select("#file-input"),
   projectFileInput = d3.select("#project-file-input");
 
 var applyButtonDefaultText = applyButton.text(),
-  applyButtonAppliedText = "適用済み";
+  applyButtonAppliedText = t('btn.applied');
 
 var currentPreviewVisible = true,
-  currentDatasetName = "サンプルデータ";
+  currentDatasetName = t('data.sampleData');
 
 function resetFileInputValue() {
   var node = fileInput.node();
@@ -232,7 +232,7 @@ function setDisplayMode(mode) {
   currentMode = nextMode;
   if (currentMode === "ranking") {
     legendUnitCache = legendUnit;
-    legendUnit = "位";
+    legendUnit = t('ranking.unit');
     legendUnitInput
       .property("value", legendUnit)
       .property("disabled", true);
@@ -319,7 +319,7 @@ function updateLegendCellsOptions() {
 applyButton.property("disabled", true);
 applyButton.text(applyButtonDefaultText);
 setCurrentDataPreviewDefault();
-setUploadStatus("CSV ファイル（UTF-8）をアップロードしてカルトグラムをカスタマイズできます。", "info");
+setUploadStatus(t('upload.initial'), "info");
 
 fileInput.on("change", function () {
   var file = this.files && this.files[0];
@@ -356,7 +356,7 @@ dropzone
 
 toggleCurrentPreviewButton.on("click", function () {
   currentPreviewVisible = !currentPreviewVisible;
-  toggleCurrentPreviewButton.text(currentPreviewVisible ? "表データを隠す" : "表データを表示");
+  toggleCurrentPreviewButton.text(currentPreviewVisible ? t('btn.hideTable') : t('btn.showTable'));
   currentDataPreview.classed("is-hidden", !currentPreviewVisible);
   if (currentPreviewVisible) {
     renderCurrentDataPreview();
@@ -374,12 +374,12 @@ loadProjectButton.on("click", function () {
   modal.show();
 
   var listGroup = d3.select("#project-list-group");
-  listGroup.html('<p class="text-center text-muted p-4">読み込み中...</p>');
+  listGroup.html('<p class="text-center text-muted p-4">' + t('modal.loading') + '</p>');
 
   CloudApi.getProjects()
     .then(function (projects) {
       if (!projects || projects.length === 0) {
-        listGroup.html('<p class="text-center text-muted p-4">保存されたプロジェクトはありません。</p>');
+        listGroup.html('<p class="text-center text-muted p-4">' + t('project.noProjects') + '</p>');
         return;
       }
 
@@ -392,11 +392,11 @@ loadProjectButton.on("click", function () {
         .attr("class", "list-group-item list-group-item-action d-flex justify-content-between align-items-center")
         .attr("type", "button")
         .on("click", function (d) {
-          if (!confirm("「" + d.name + "」を読み込みますか？現在の作業内容は上書きされます。")) {
+          if (!confirm(t('project.confirmLoad', { name: d.name }))) {
             return;
           }
           var btn = d3.select(this);
-          btn.text("読み込み中...").property("disabled", true);
+          btn.text(t('modal.loading')).property("disabled", true);
 
           CloudApi.loadProject(d.id)
             .then(function (projectData) {
@@ -405,7 +405,7 @@ loadProjectButton.on("click", function () {
             })
             .catch(function (err) {
               console.error(err);
-              alert("読み込みに失敗しました: " + err.message);
+              alert(t('project.loadFailed') + err.message);
               btn.text(d.name).property("disabled", false);
             });
         });
@@ -413,13 +413,13 @@ loadProjectButton.on("click", function () {
       items.append("div")
         .html(function (d) {
           var dateStr = d.updated_at ? new Date(d.updated_at).toLocaleString() : "";
-          return '<div class="fw-bold">' + (d.name || "名称未設定") + '</div>' +
+          return '<div class="fw-bold">' + (d.name || t('project.unnamed')) + '</div>' +
             '<small class="text-muted">' + dateStr + '</small>';
         });
     })
     .catch(function (err) {
       console.error(err);
-      listGroup.html('<p class="text-center text-danger p-4">プロジェクト一覧の取得に失敗しました。<br>' + err.message + '</p>');
+      listGroup.html('<p class="text-center text-danger p-4">' + t('project.listFailed') + '<br>' + err.message + '</p>');
     });
 });
 
@@ -470,7 +470,7 @@ d3.json("data/japan.topojson", function (topo) {
     originalData = cloneDataset(data);
     loadDataset(cloneDataset(data), {
       deferRender: true,
-      label: "サンプルデータ",
+      label: t('data.sampleData'),
       isSample: true,
       defaultToNone: true,
       preserveField: false
@@ -496,7 +496,7 @@ d3.json("data/japan.topojson", function (topo) {
               .then(restoreProjectState)
               .catch(function (err) {
                 console.error("Auto load failed", err);
-                alert("プロジェクトの読み込みに失敗しました: " + err.message);
+                alert(t('project.autoLoadFailed') + err.message);
               });
           }
         });
@@ -662,7 +662,7 @@ function update() {
       .sort(d3.ascending);
 
   if (!values.length) {
-    stat.text("有効な数値が見つかりません。");
+    stat.text(t('status.noValidNumbers'));
     body.classed("updating", false);
     return;
   }
@@ -729,7 +729,7 @@ function update() {
     .select("title")
     .text(function (d) {
       var originalValue = value(d);
-      var displayValue = isNaN(originalValue) ? "データなし" : fmt(originalValue);
+      var displayValue = isNaN(originalValue) ? t('data.noData') : fmt(originalValue);
       return [d.properties.nam_ja, displayValue].join(": ");
     });
 
@@ -860,7 +860,7 @@ function loadDataset(data, options) {
   field = selectDefaultField(nextFields, preferredKey, options.defaultToNone);
 
   refreshFieldOptions();
-  updateCurrentDatasetLabel(options.label || "カスタムデータ", options.isSample);
+  updateCurrentDatasetLabel(options.label || t('data.customData'), options.isSample);
   renderCurrentDataPreview();
 
   stat.text("");
@@ -873,7 +873,7 @@ function loadDataset(data, options) {
 
 function buildFieldsFromData(data) {
   var availableFields = [{
-    name: "(指標未適用)",
+    name: t('field.noField'),
     id: "none"
   }];
 
@@ -951,11 +951,11 @@ function handleFileUpload(file) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    setUploadStatus("ファイルサイズが大きすぎます（2MB以下にしてください）。", "danger");
+    setUploadStatus(t('upload.fileTooLarge'), "danger");
     return;
   }
 
-  setUploadStatus("「" + file.name + "」を読み込み中...", "info");
+  setUploadStatus(t('upload.reading', { name: file.name }), "info");
 
   var reader = new FileReader();
   reader.onload = function (evt) {
@@ -965,13 +965,13 @@ function handleFileUpload(file) {
       preparePreview(parsed, file.name);
     } catch (error) {
       console.error(error);
-      setUploadStatus("CSV の解析に失敗しました。ファイル内容を確認してください。", "danger");
+      setUploadStatus(t('upload.parseFailed'), "danger");
       clearPreview();
     }
   };
 
   reader.onerror = function () {
-    setUploadStatus("ファイルの読み込みに失敗しました。", "danger");
+    setUploadStatus(t('upload.readFailed'), "danger");
     clearPreview();
   };
 
@@ -980,7 +980,7 @@ function handleFileUpload(file) {
 
 
 function preparePreview(data, filename) {
-  var label = filename || "アップロードしたファイル";
+  var label = filename || t('data.uploadedFile');
   var validation = validateDataset(data);
 
   if (!validation.valid) {
@@ -1000,7 +1000,7 @@ function preparePreview(data, filename) {
   preview.classed("is-hidden", false);
   renderPreviewTable(data);
   renderPreviewStats(data, validation.numericColumns);
-  setUploadStatus("「" + label + "」を読み込みました。プレビューを確認して適用してください。", "success");
+  setUploadStatus(t('upload.loaded', { name: label }), "success");
   applyButton
     .property("disabled", false)
     .text(applyButtonDefaultText);
@@ -1008,17 +1008,17 @@ function preparePreview(data, filename) {
 
 function validateDataset(data) {
   if (!data || !data.length) {
-    return { valid: false, message: "データ行が見つかりませんでした。" };
+    return { valid: false, message: t('validate.noRows') };
   }
 
   var headers = Object.keys(data[0]);
   if (headers.indexOf(KEY_COLUMN) === -1) {
-    return { valid: false, message: "CSV に「" + KEY_COLUMN + "」列が含まれていません。" };
+    return { valid: false, message: t('validate.noKeyColumn', { col: KEY_COLUMN }) };
   }
 
   var numericColumns = getNumericColumns(data);
   if (!numericColumns.length) {
-    return { valid: false, message: "数値として扱える列がありません。" };
+    return { valid: false, message: t('validate.noNumeric') };
   }
 
   return {
@@ -1030,7 +1030,7 @@ function validateDataset(data) {
 function clearPreview() {
   pendingDataset = null;
   preview.classed("is-hidden", true);
-  previewTable.html("<p class='text-muted'>CSV をアップロードするとここにプレビューが表示されます。</p>");
+  previewTable.html("<p class='text-muted'>" + t('upload.previewPlaceholder') + "</p>");
   previewStats.html("");
   applyButton
     .property("disabled", true)
@@ -1040,9 +1040,9 @@ function clearPreview() {
 function renderPreviewTable(data) {
   renderTableInto(previewTable, data, {
     rowCount: PREVIEW_ROW_COUNT,
-    emptyMessage: "プレビューできる行がありません。",
+    emptyMessage: t('table.previewEmpty'),
     note: function (shownRows, totalRows) {
-      return "先頭 " + shownRows + " 行を表示しています（全 " + totalRows + " 行）。";
+      return t('table.showingRows', { shown: shownRows, total: totalRows });
     }
   });
 }
@@ -1064,7 +1064,7 @@ function renderPreviewStats(data, numericColumns) {
     var max = d3.max(values);
     var mean = d3.mean(values);
 
-    return "<p><strong>" + column + "</strong>：最小 " + fmt(min) + " ／ 最大 " + fmt(max) + " ／ 平均 " + fmt(mean) + "</p>";
+    return "<p>" + t('stats.summary', { col: column, min: fmt(min), max: fmt(max), mean: fmt(mean) }) + "</p>";
   }).join("");
 
   previewStats.html(statsHtml);
@@ -1083,7 +1083,7 @@ function setUploadStatus(message, tone) {
 function renderTableInto(container, data, options) {
   options = options || {};
   if (!data || !data.length) {
-    container.html("<p class='text-muted'>" + (options.emptyMessage || "表示できるデータがありません。") + "</p>");
+    container.html("<p class='text-muted'>" + (options.emptyMessage || t('table.noData')) + "</p>");
     return;
   }
 
@@ -1107,7 +1107,7 @@ function renderTableInto(container, data, options) {
   if (typeof options.note === "function") {
     note = options.note(rowCount, data.length);
   } else {
-    note = options.note || "先頭 " + rowCount + " 行を表示しています。";
+    note = options.note || t('table.showingRowsDefault', { n: rowCount });
   }
 
   var tableHtml = ""
@@ -1124,15 +1124,15 @@ function renderCurrentDataPreview() {
   if (!rawData || !rawData.length) {
     currentDataPreview
       .classed("is-hidden", !currentPreviewVisible)
-      .html("<p class='text-muted'>現在のデータが読み込まれていません。</p>");
+      .html("<p class='text-muted'>" + t('table.currentDataEmpty') + "</p>");
     return;
   }
 
   renderTableInto(currentDataPreview, rawData, {
     rowCount: CURRENT_PREVIEW_ROW_COUNT,
-    emptyMessage: "現在のデータが読み込まれていません。",
+    emptyMessage: t('table.currentDataEmpty'),
     note: function (shownRows, totalRows) {
-      return "先頭 " + shownRows + " 行（" + currentDatasetName + " ／ 全 " + totalRows + " 行）を表示しています。";
+      return t('table.currentPreview', { shown: shownRows, name: currentDatasetName, total: totalRows });
     }
   });
 }
@@ -1147,7 +1147,7 @@ function updateCurrentDatasetLabel(label, isSample) {
 
 function setCurrentDataPreviewDefault() {
   currentPreviewVisible = true;
-  toggleCurrentPreviewButton.text("表データを隠す");
+  toggleCurrentPreviewButton.text(t('btn.hideTable'));
   currentDataPreview
     .classed("is-hidden", false);
   renderCurrentDataPreview();
@@ -1155,11 +1155,11 @@ function setCurrentDataPreviewDefault() {
 
 function applyPendingData() {
   if (!pendingDataset) {
-    setUploadStatus("適用できるプレビューがありません。新しい CSV をアップロードしてください。", "danger");
+    setUploadStatus(t('upload.noPreview'), "danger");
     return;
   }
 
-  var datasetLabel = pendingDataset.filename || "アップロードデータ";
+  var datasetLabel = pendingDataset.filename || t('data.uploadedData');
 
   loadDataset(cloneDataset(pendingDataset.data), {
     label: datasetLabel,
@@ -1169,32 +1169,32 @@ function applyPendingData() {
   });
   resetMapVisualState();
 
-  setUploadStatus("「" + datasetLabel + "」を適用しました。", "success");
+  setUploadStatus(t('upload.applied', { name: datasetLabel }), "success");
 
   clearPreview();
-  previewTable.html("<p class='text-success'>アップロードしたデータを適用しました。別のファイルを読み込むこともできます。</p>");
+  previewTable.html("<p class='text-success'>" + t('upload.appliedMessage') + "</p>");
   applyButton.text(applyButtonAppliedText);
   currentPreviewVisible = false;
-  toggleCurrentPreviewButton.text("表データを表示");
+  toggleCurrentPreviewButton.text(t('btn.showTable'));
   currentDataPreview.classed("is-hidden", true);
 }
 
 function resetToSampleData() {
   if (!originalData || !originalData.length) {
-    setUploadStatus("サンプルデータを読み込めません。ページを再読み込みしてください。", "danger");
+    setUploadStatus(t('reset.failed'), "danger");
     return;
   }
 
   loadDataset(cloneDataset(originalData), {
-    label: "サンプルデータ",
+    label: t('data.sampleData'),
     isSample: true,
     defaultToNone: true,
     preserveField: false
   });
   resetMapVisualState();
   clearPreview();
-  previewTable.html("<p class='text-muted'>サンプルデータを表示しています。CSV をアップロードするとここにプレビューが表示されます。</p>");
-  setUploadStatus("サンプルデータに戻しました。", "info");
+  previewTable.html("<p class='text-muted'>" + t('table.samplePreview') + "</p>");
+  setUploadStatus(t('reset.done'), "info");
 }
 
 function cloneDataset(data) {
@@ -1259,17 +1259,17 @@ function downloadCurrentPng() {
 
 function downloadCurrentDatasetCsv() {
   if (!rawData || !rawData.length) {
-    setUploadStatus("ダウンロードできるデータがありません。", "danger");
+    setUploadStatus(t('download.noData'), "danger");
     return;
   }
   try {
     var csvContent = d3.csvFormat(rawData);
     var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
     triggerDownload(blob, getDownloadFilename("csv"));
-    setUploadStatus("CSV をダウンロードしました。", "success");
+    setUploadStatus(t('download.csvDone'), "success");
   } catch (error) {
     console.error(error);
-    setUploadStatus("CSV の生成に失敗しました。", "danger");
+    setUploadStatus(t('download.csvFailed'), "danger");
   }
 }
 
@@ -1412,7 +1412,7 @@ function renderLegend(colorScale, minValue, maxValue, breaks, colorRange) {
     return;
   }
 
-  var legendFieldName = (field && field.name && field.id !== "none") ? field.name : "値";
+  var legendFieldName = (field && field.name && field.id !== "none") ? field.name : t('field.value');
   var formatValue = d3.format(",.0f");
 
   legendGroup.selectAll("*").remove();
@@ -1420,14 +1420,14 @@ function renderLegend(colorScale, minValue, maxValue, breaks, colorRange) {
   var legendContent = legendGroup.append("g")
     .attr("class", "legend-content");
 
-  var unitLabel = currentMode === "ranking" ? "位" : (legendUnit || "");
-  var rangeText = formatValue(minValue) + " ～ " + formatValue(maxValue);
+  var unitLabel = currentMode === "ranking" ? t('ranking.unit') : (legendUnit || "");
+  var rangeText = formatValue(minValue) + " " + t('legend.range') + " " + formatValue(maxValue);
   var titleSuffix = unitLabel ? " " + unitLabel : "";
   legendContent.append("text")
     .attr("class", "legend-title")
     .attr("x", 0)
     .attr("y", 0)
-    .text(legendFieldName + "（" + rangeText + titleSuffix + "）");
+    .text(legendFieldName + t('legend.bracketOpen') + rangeText + titleSuffix + t('legend.bracketClose'));
 
   var entries;
   if (breaks && colorRange && breaks.length >= 2) {
@@ -1440,7 +1440,7 @@ function renderLegend(colorScale, minValue, maxValue, breaks, colorRange) {
       var hi = extent && extent[1] != null ? extent[1] : maxValue;
       return {
         color: c,
-        label: formatValue(lo) + " ～ " + formatValue(hi),
+        label: formatValue(lo) + " " + t('legend.range') + " " + formatValue(hi),
         range: [lo, hi]
       };
     });
@@ -1585,7 +1585,7 @@ function selectDefaultField(fields, preferredKey, defaultToNone) {
 
 function saveProjectFile() {
   if (!rawData || !rawData.length) {
-    alert("保存するデータがありません。");
+    alert(t('project.noData'));
     return;
   }
 
@@ -1611,16 +1611,16 @@ function saveProjectFile() {
     var jsonContent = JSON.stringify(saveData, null, 2);
     var blob = new Blob([jsonContent], { type: "application/json" });
 
-    var fieldName = (field && field.name && field.id !== "none") ? field.name : "データ未選択";
-    var modeName = currentMode === "ranking" ? "ランキング" : "実数";
+    var fieldName = (field && field.name && field.id !== "none") ? field.name : t('filename.noField');
+    var modeName = currentMode === "ranking" ? t('ranking.label') : t('value.label');
     var dateStr = d3.timeFormat("%y%m%d")(new Date());
 
-    var filename = "日本_" + fieldName + "_" + modeName + "_" + dateStr + ".json";
+    var filename = t('filename.japan') + "_" + fieldName + "_" + modeName + "_" + dateStr + ".json";
 
     triggerDownload(blob, filename);
   } catch (e) {
     console.error(e);
-    alert("保存中にエラーが発生しました。");
+    alert(t('project.saveError'));
   }
 }
 
@@ -1637,7 +1637,7 @@ function loadProjectFile(file) {
       restoreProjectState(projectData);
     } catch (e) {
       console.error(e);
-      alert("プロジェクトファイルの読み込みに失敗しました。形式が正しいか確認してください。");
+      alert(t('project.loadFileError'));
     }
   };
   reader.readAsText(file);
@@ -1654,7 +1654,7 @@ function setButtonLoading(btn, isLoading) {
     if (!btn.attr("data-original-text")) {
       btn.attr("data-original-text", btn.text());
     }
-    btn.text("処理中...").property("disabled", true);
+    btn.text(t('btn.processing')).property("disabled", true);
   } else {
     var originalText = btn.attr("data-original-text");
     if (originalText) btn.text(originalText);
@@ -1696,17 +1696,17 @@ function getThumbnailBlob() {
 
 function saveProjectToCloud() {
   if (!rawData || !rawData.length) {
-    alert("保存するデータがありません。");
+    alert(t('project.noData'));
     return;
   }
 
-  var defaultName = currentDatasetName || "名称未設定";
-  var fieldName = (field && field.name && field.id !== "none") ? field.name : "データ未選択";
-  var modeName = currentMode === "ranking" ? "ランキング" : "実数";
+  var defaultName = currentDatasetName || t('project.unnamed');
+  var fieldName = (field && field.name && field.id !== "none") ? field.name : t('filename.noField');
+  var modeName = currentMode === "ranking" ? t('ranking.label') : t('value.label');
   var dateStr = d3.timeFormat("%y%m%d")(new Date());
-  var suggestedName = "日本_" + fieldName + "_" + modeName + "_" + dateStr;
+  var suggestedName = t('filename.japan') + "_" + fieldName + "_" + modeName + "_" + dateStr;
 
-  var projectName = prompt("プロジェクト名を入力してください", suggestedName);
+  var projectName = prompt(t('project.promptName'), suggestedName);
   if (projectName === null) return;
 
   setButtonLoading(saveProjectButton, true);
@@ -1734,7 +1734,7 @@ function saveProjectToCloud() {
       .then(function () {
         var toolHeader = document.querySelector('dataviz-tool-header');
         if (toolHeader) {
-          toolHeader.showMessage("プロジェクト「" + projectName + "」を保存しました。", "success");
+          toolHeader.showMessage(t('project.saved', { name: projectName }), "success");
         }
         setButtonLoading(saveProjectButton, false);
       })
@@ -1742,7 +1742,7 @@ function saveProjectToCloud() {
         console.error(err);
         var toolHeader = document.querySelector('dataviz-tool-header');
         if (toolHeader) {
-          toolHeader.showMessage("保存に失敗しました: " + err.message, "error");
+          toolHeader.showMessage(t('project.saveFailed') + err.message, "error");
         }
         setButtonLoading(saveProjectButton, false);
       });
@@ -1751,11 +1751,11 @@ function saveProjectToCloud() {
 
 function restoreProjectState(projectData) {
   if (!projectData || !projectData.data) {
-    alert("有効なプロジェクトデータが見つかりません。");
+    alert(t('project.invalidData'));
     return;
   }
 
-  var datasetLabel = (projectData.meta && projectData.meta.datasetName) || "ロードされたデータ";
+  var datasetLabel = (projectData.meta && projectData.meta.datasetName) || t('data.loadedData');
   var config = projectData.config || {};
 
   loadDataset(cloneDataset(projectData.data), {
@@ -1812,7 +1812,7 @@ function restoreProjectState(projectData) {
 
   // 6. UI状態の更新 (プレビュー隠すなど)
   currentPreviewVisible = false;
-  toggleCurrentPreviewButton.text("表データを表示");
+  toggleCurrentPreviewButton.text(t('btn.showTable'));
   currentDataPreview.classed("is-hidden", true);
 
   // 7. UIと描画の更新
@@ -1834,12 +1834,12 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
       modal.show();
 
       var listGroup = d3.select("#project-list-group");
-      listGroup.html('<p class="text-center text-muted p-4">読み込み中...</p>');
+      listGroup.html('<p class="text-center text-muted p-4">' + t('modal.loading') + '</p>');
 
       CloudApi.getProjects()
         .then(function (projects) {
           if (!projects || projects.length === 0) {
-            listGroup.html('<p class="text-center text-muted p-4">保存されたプロジェクトはありません。</p>');
+            listGroup.html('<p class="text-center text-muted p-4">' + t('project.noProjects') + '</p>');
             return;
           }
 
@@ -1852,11 +1852,11 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
             .attr("class", "list-group-item list-group-item-action d-flex justify-content-between align-items-center")
             .attr("type", "button")
             .on("click", function (d) {
-              if (!confirm("「" + d.name + "」を読み込みますか？現在の作業内容は上書きされます。")) {
+              if (!confirm(t('project.confirmLoad', { name: d.name }))) {
                 return;
               }
               var btn = d3.select(this);
-              btn.text("読み込み中...").property("disabled", true);
+              btn.text(t('modal.loading')).property("disabled", true);
 
               CloudApi.loadProject(d.id)
                 .then(function (projectData) {
@@ -1865,7 +1865,7 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
                 })
                 .catch(function (err) {
                   console.error(err);
-                  alert("読み込みに失敗しました: " + err.message);
+                  alert(t('project.loadFailed') + err.message);
                   btn.text(d.name).property("disabled", false);
                 });
             });
@@ -1873,27 +1873,27 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
           items.append("div")
             .html(function (d) {
               var dateStr = d.updated_at ? new Date(d.updated_at).toLocaleString() : "";
-              return '<div class="fw-bold">' + (d.name || "名称未設定") + '</div>' +
+              return '<div class="fw-bold">' + (d.name || t('project.unnamed')) + '</div>' +
                 '<small class="text-muted">' + dateStr + '</small>';
             });
         })
         .catch(function (err) {
           console.error(err);
-          listGroup.html('<p class="text-center text-danger p-4">プロジェクト一覧の取得に失敗しました。<br>' + err.message + '</p>');
+          listGroup.html('<p class="text-center text-danger p-4">' + t('project.listFailed') + '<br>' + err.message + '</p>');
         });
     };
 
     toolHeader.setConfig({
       logo: {
         type: 'text',
-        text: '日本地図カルトグラム',
+        text: t('header.title'),
         textClass: 'font-bold text-lg text-white'
       },
       buttons: [
-        { label: 'プロジェクトの読込', action: handleLoad, align: 'right' },
-        { label: 'プロジェクトの保存', action: handleSave, align: 'right' },
-        { label: 'カルトグラムとは', action: function() { window.open('https://visualizing.jp/cartogram/', '_blank'); }, align: 'right' },
-        { label: '階級分類とは', action: function() { window.open('https://classification.explorable-explanations.com/', '_blank'); }, align: 'right' }
+        { label: t('header.loadProject'), action: handleLoad, align: 'right' },
+        { label: t('header.saveProject'), action: handleSave, align: 'right' },
+        { label: t('header.aboutCartogram'), action: function() { window.open('https://visualizing.jp/cartogram/', '_blank'); }, align: 'right' },
+        { label: t('header.aboutClassification'), action: function() { window.open('https://classification.explorable-explanations.com/', '_blank'); }, align: 'right' }
       ]
     });
   }

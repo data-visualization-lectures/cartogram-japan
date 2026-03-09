@@ -9,7 +9,7 @@ var CloudApi = (function () {
         var globalAuthClient = window.datavizSupabase;
         var apiUrl = window.datavizApiUrl;
         if (!globalAuthClient || !globalAuthClient.auth) {
-            throw new Error("認証クライアントが読み込まれていません。ページをリロードしてください。");
+            throw new Error(t('auth.notLoaded'));
         }
 
         var sessionResponse = await globalAuthClient.auth.getSession();
@@ -18,7 +18,7 @@ var CloudApi = (function () {
 
         if (sessionError || !session || !session.user) {
             console.warn("Session check failed:", sessionError);
-            throw new Error("ログインしてください。");
+            throw new Error(t('auth.loginRequired'));
         }
 
         var supabaseUrl = "https://vebhoeiltxspsurqoxvl.supabase.co"; // 固定値 or 環境変数
