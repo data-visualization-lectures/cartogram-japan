@@ -60,6 +60,7 @@ function minifyHTML(inputFile, outputFile, options) {
     if (options && options.stripDocsPrefix) {
       html = html.replace(/docs\/style\.min\.css/g, 'style.min.css');
       html = html.replace(/docs\/app\.min\.js/g, 'app.min.js');
+      html = html.replace(/<script src="assets\/i18n\.js"><\/script>/g, '');
     }
     fs.writeFileSync(outputFile, html, 'utf8');
     console.log(`✓ Minified: ${inputFile} → ${outputFile}`);
