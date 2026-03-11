@@ -65,6 +65,7 @@
     'label.colorScheme': { ja: 'カラースキーム', en: 'Color Scheme' },
     'aria.colorScheme': { ja: 'カラースキーム', en: 'Color Scheme' },
     'label.showPlaceNames': { ja: '地名を表示', en: 'Show Place Names' },
+    'label.perArea': { ja: '面積で割る（/km²）', en: 'Divide by area (/km²)' },
     'btn.downloadSvg': { ja: 'SVGダウンロード', en: 'Download SVG' },
     'btn.downloadPng': { ja: 'PNGダウンロード', en: 'Download PNG' },
 

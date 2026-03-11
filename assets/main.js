@@ -69,7 +69,9 @@ var fields = [],
   currentCustomBreaks = null,
   lastAutoBreaks = null,
   customBreaksSnapshot = null,
-  pendingCustomBreaks = null;
+  pendingCustomBreaks = null,
+  areaByLabel = d3.map(),
+  perAreaEnabled = false;
 
 var body = d3.select("body"),
   stat = d3.select("#status");
@@ -93,6 +95,7 @@ var fileInput = d3.select("#file-input"),
   displayModeSelect = d3.select("#display-mode"),
   classMethodSelect = d3.select("#classification-method"),
   placeNameToggle = d3.select("#toggle-place-names"),
+  perAreaToggle = d3.select("#toggle-per-area"),
   downloadDataButton = d3.select("#download-data-csv"),
   loadProjectButton = d3.select("#btn-load-project"),
   saveProjectButton = d3.select("#btn-save-project"),
@@ -336,6 +339,20 @@ legendUnitInput.on("input", function () {
 
 placeNameToggle.on("change", function () {
   renderPlaceLabels();
+});
+
+perAreaToggle.on("change", function () {
+  perAreaEnabled = this.checked;
+  if (perAreaEnabled) {
+    var base = legendUnitCache || "";
+    legendUnit = base ? base + "/km²" : "/km²";
+  } else {
+    legendUnit = legendUnitCache || "";
+  }
+  legendUnitInput.property("value", legendUnit);
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
 });
 
 function updateLegendCellsOptions() {
@@ -676,6 +693,7 @@ var proj = d3.geoMercator()
 d3.json("data/japan.topojson", function (topo) {
   topology = topo;
   geometries = topology.objects.japan.geometries;
+  computeAreas(topology, "japan");
   d3.csv("data/theme.csv", function (data) {
     augmentWithRankings(data);
     originalData = cloneDataset(data);
@@ -856,21 +874,57 @@ function renderPlaceLabels() {
     });
 }
 
+function computeAreas(topo, objName) {
+  areaByLabel = d3.map();
+  var obj = topo.objects && topo.objects[objName];
+  if (!obj) return;
+  var fc = topojson.feature(topo, obj);
+  var R = 6371.0088;
+  (fc.features || []).forEach(function (f) {
+    var label = getFeatureLabel(f);
+    if (!label) return;
+    var sr = d3.geoArea(f);
+    areaByLabel.set(label, sr * R * R);
+  });
+}
+
 function update() {
   var start = Date.now();
   body.classed("updating", true);
 
   var key = field.key,
-    fmt = d3.format(","),
-    value = function (d) {
+    fmt = perAreaEnabled ? d3.format(",.2f") : d3.format(","),
+    rawValue = function (d) {
       return +d.properties[key];
     },
+    value = perAreaEnabled
+      ? function (d) {
+          var v = rawValue(d);
+          if (isNaN(v)) return NaN;
+          var label = getFeatureLabel(d);
+          var area = areaByLabel.get(label);
+          return (area && area > 0) ? v / area : NaN;
+        }
+      : rawValue;
+
+  var values;
+  if (perAreaEnabled) {
     values = states.data()
-      .map(value)
-      .filter(function (n) {
-        return !isNaN(n);
+      .map(function (d) {
+        var v = +d.properties[key];
+        if (isNaN(v)) return NaN;
+        var label = getFeatureLabel(d);
+        var area = areaByLabel.get(label);
+        return (area && area > 0) ? v / area : NaN;
       })
+      .filter(function (n) { return !isNaN(n); })
       .sort(d3.ascending);
+  } else {
+    values = states.data()
+      .map(rawValue)
+      .filter(function (n) { return !isNaN(n); })
+      .sort(d3.ascending);
+  }
 
   if (!values.length) {
     stat.text(t('status.noValidNumbers'));
@@ -1826,6 +1880,7 @@ function saveProjectFile() {
       legendUnit: legendUnit,
       displayMode: currentMode,
       showPlaceLabels: placeNameToggle.property("checked"),
+      perAreaEnabled: perAreaEnabled,
       classificationMethod: currentClassificationMethod,
       customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
     }
@@ -1949,6 +2004,7 @@ function saveProjectToCloud() {
       legendUnit: legendUnit,
       displayMode: currentMode,
       showPlaceLabels: placeNameToggle.property("checked"),
+      perAreaEnabled: perAreaEnabled,
       classificationMethod: currentClassificationMethod,
       customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
     }
@@ -2026,6 +2082,12 @@ function restoreProjectState(projectData) {
   // 5. 地名ラベル (Place Labels)
   if (config.showPlaceLabels !== undefined) {
     placeNameToggle.property("checked", config.showPlaceLabels);
+  }
+
+  // 5.25. 面積で割る (Per Area)
+  if (config.perAreaEnabled !== undefined) {
+    perAreaEnabled = !!config.perAreaEnabled;
+    perAreaToggle.property("checked", perAreaEnabled);
   }
 
   // 5.5. 分類方法 (Classification Method)
