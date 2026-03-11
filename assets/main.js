@@ -1468,7 +1468,9 @@ function downloadCurrentPng() {
     URL.revokeObjectURL(url);
     canvas.toBlob(function (blob) {
       if (blob) {
-        triggerDownload(blob, getDownloadFilename("png"));
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        var downloadBlob = isMobile ? blob : new Blob([blob], { type: "application/octet-stream" });
+        triggerDownload(downloadBlob, getDownloadFilename("png"));
       }
       setButtonLoading(downloadPngButton, false);
     }, "image/png");
@@ -1515,29 +1517,26 @@ function serializeSvg(svgNode) {
     + "path.state{stroke:#666;stroke-width:.5;}"
     + "#legend .legend-title{font-size:12px;font-weight:600;fill:#0f172a;}"
     + "#legend text{font-size:11px;fill:#5f6c80;}"
-    + ".state-label{font-size:8px;text-anchor:middle;pointer-events:none;}"
-    + ".state-label-stroke{fill:none;stroke:#ffffff;stroke-width:2px;paint-order:stroke;stroke-linejoin:round;}"
-    + ".state-label-fill{fill:#0f172a;stroke:none;}";
+    + ".state-label-stroke{font-size:8px;text-anchor:middle;pointer-events:none;fill:none;stroke:#ffffff;stroke-width:2px;stroke-linejoin:round;}"
+    + ".state-label-fill{font-size:8px;text-anchor:middle;pointer-events:none;fill:#0f172a;stroke:none;}";
   clone.insertBefore(style, clone.firstChild);
 
   // 念のためラベル要素にスタイルを直接付与してエクスポート時も色が残るようにする
-  Array.prototype.forEach.call(clone.querySelectorAll(".state-label"), function (node) {
+  Array.prototype.forEach.call(clone.querySelectorAll(".state-label-stroke"), function (node) {
     node.setAttribute("text-anchor", "middle");
     node.setAttribute("font-size", "8px");
     node.setAttribute("pointer-events", "none");
-  });
-
-  Array.prototype.forEach.call(clone.querySelectorAll(".state-label-stroke"), function (node) {
     node.setAttribute("fill", "none");
     node.setAttribute("stroke", "#ffffff");
     node.setAttribute("stroke-width", "2");
-    node.setAttribute("paint-order", "stroke");
     node.setAttribute("stroke-linejoin", "round");
   });
-
   Array.prototype.forEach.call(clone.querySelectorAll(".state-label-fill"), function (node) {
+    node.setAttribute("text-anchor", "middle");
+    node.setAttribute("font-size", "8px");
+    node.setAttribute("pointer-events", "none");
     node.setAttribute("fill", "#0f172a");
-    node.setAttribute("stroke", "none");
+    node.removeAttribute("stroke");
   });
 
   var background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
