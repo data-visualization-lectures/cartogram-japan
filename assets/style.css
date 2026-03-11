@@ -499,6 +499,135 @@ body {
   cursor: not-allowed;
 }
 
+.custom-breaks-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.6rem 0;
+}
+
+.custom-breaks-editor.is-hidden {
+  display: none !important;
+}
+
+.custom-breaks-header {
+  margin-bottom: 0.2rem;
+}
+
+.custom-breaks-title {
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.custom-breaks-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.custom-breaks-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.custom-breaks-row .break-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+}
+
+.custom-breaks-row .break-input {
+  width: 80px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--secondary-bg, #f2f4f7);
+  font-size: 0.8rem;
+  color: #0f172a;
+  text-align: center;
+  height: 1.8rem;
+}
+
+.custom-breaks-row .break-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.custom-breaks-row .break-label {
+  width: 80px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.custom-breaks-row .break-dash {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.custom-breaks-footer {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.custom-breaks-footer .break-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  padding: 0;
+  line-height: 1;
+}
+
+.custom-breaks-footer .break-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.break-btn-text {
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.break-btn-text:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.break-btn-confirm {
+  background: var(--accent, #3b82f6);
+  color: #fff;
+  border-color: var(--accent, #3b82f6);
+  font-weight: 600;
+}
+
+.break-btn-confirm:hover {
+  opacity: 0.9;
+  color: #fff;
+}
+
 .map-frame {
   position: relative;
   width: 100%;

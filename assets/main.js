@@ -65,7 +65,11 @@ var fields = [],
   legendUnitCache = "",
   currentMode = "value",
   currentClassificationMethod = "quantile",
-  currentBreaks = null;
+  currentBreaks = null,
+  currentCustomBreaks = null,
+  lastAutoBreaks = null,
+  customBreaksSnapshot = null,
+  pendingCustomBreaks = null;
 
 var body = d3.select("body"),
   stat = d3.select("#status");
@@ -172,12 +176,20 @@ function initializeClassificationMethodOptions() {
       .attr("value", key)
       .text(methods[key]);
   });
+  classMethodSelect.append("option")
+    .attr("value", "custom")
+    .text(t('class.custom'));
   classMethodSelect.property("value", currentClassificationMethod);
   updateLegendCellsForMethod();
 }
 
 function updateLegendCellsForMethod() {
   var method = currentClassificationMethod;
+  if (method === "custom") {
+    legendCellsSelect.property("disabled", true);
+    return;
+  }
+  legendCellsSelect.property("disabled", false);
   legendCellsSelect.selectAll("option").each(function () {
     var option = d3.select(this);
     var value = +option.attr("value");
@@ -231,6 +243,12 @@ function setDisplayMode(mode) {
   displayModeSelect.property("value", nextMode);
   currentMode = nextMode;
   if (currentMode === "ranking") {
+    if (currentClassificationMethod === "custom") {
+      currentClassificationMethod = "quantile";
+      classMethodSelect.property("value", "quantile");
+      currentCustomBreaks = null;
+      hideCustomBreaksUI();
+    }
     legendUnitCache = legendUnit;
     legendUnit = t('ranking.unit');
     legendUnitInput
@@ -281,7 +299,15 @@ displayModeSelect.on("change", function () {
 });
 
 classMethodSelect.on("change", function () {
-  currentClassificationMethod = this.value;
+  var newMethod = this.value;
+  if (newMethod === "custom") {
+    currentCustomBreaks = lastAutoBreaks ? lastAutoBreaks.slice() : (currentBreaks ? currentBreaks.slice() : null);
+    showCustomBreaksUI();
+  } else {
+    currentCustomBreaks = null;
+    hideCustomBreaksUI();
+  }
+  currentClassificationMethod = newMethod;
   updateLegendCellsForMethod();
   if (field && field.id !== "none") {
     deferredUpdate();
@@ -314,6 +340,191 @@ placeNameToggle.on("change", function () {
 
 function updateLegendCellsOptions() {
   updateLegendCellsForMethod();
+}
+
+// --- Custom Breaks Editor ---
+var customBreaksEditor = d3.select(".map-select")
+  .append("div")
+  .attr("id", "custom-breaks-editor")
+  .attr("class", "custom-breaks-editor is-hidden");
+
+customBreaksEditor.append("div").attr("class", "custom-breaks-header")
+  .append("span").attr("class", "custom-breaks-title").text("LEGEND");
+customBreaksEditor.append("div").attr("class", "custom-breaks-rows");
+customBreaksEditor.append("div").attr("class", "custom-breaks-footer");
+
+function showCustomBreaksUI() {
+  customBreaksSnapshot = currentCustomBreaks ? currentCustomBreaks.slice() : null;
+  pendingCustomBreaks = currentCustomBreaks ? currentCustomBreaks.slice() : null;
+  customBreaksEditor.classed("is-hidden", false);
+  renderCustomBreakInputs();
+}
+
+function hideCustomBreaksUI() {
+  customBreaksEditor.classed("is-hidden", true);
+  customBreaksEditor.select(".custom-breaks-rows").selectAll("*").remove();
+  customBreaksEditor.select(".custom-breaks-footer").selectAll("*").remove();
+  pendingCustomBreaks = null;
+}
+
+function renderCustomBreakInputs() {
+  var rowsContainer = customBreaksEditor.select(".custom-breaks-rows");
+  var footerContainer = customBreaksEditor.select(".custom-breaks-footer");
+  rowsContainer.selectAll("*").remove();
+  footerContainer.selectAll("*").remove();
+  if (!pendingCustomBreaks || pendingCustomBreaks.length < 2) return;
+
+  var nClasses = pendingCustomBreaks.length - 1;
+  var interpolator = (currentColorScheme && currentColorScheme.interpolator) || d3.interpolateBlues;
+  var colors = buildColorSamples(interpolator, nClasses);
+
+  for (var i = 0; i < nClasses; i++) {
+    (function (classIdx) {
+      var row = rowsContainer.append("div").attr("class", "custom-breaks-row");
+
+      // color swatch
+      row.append("span")
+        .attr("class", "break-swatch")
+        .style("background", colors[classIdx]);
+
+      // lower bound
+      if (classIdx === 0) {
+        row.append("span").attr("class", "break-label").text(t('custom.less'));
+      } else {
+        row.append("input")
+          .attr("type", "number")
+          .attr("step", "any")
+          .attr("class", "break-input")
+          .property("value", formatBreakValue(pendingCustomBreaks[classIdx]))
+          .on("change", function () {
+            onCustomBreakChange(classIdx, this.value);
+          });
+      }
+
+      // dash separator
+      row.append("span").attr("class", "break-dash").text("—");
+
+      // upper bound
+      if (classIdx === nClasses - 1) {
+        row.append("span").attr("class", "break-label").text(t('custom.more'));
+      } else {
+        row.append("input")
+          .attr("type", "number")
+          .attr("step", "any")
+          .attr("class", "break-input")
+          .property("value", formatBreakValue(pendingCustomBreaks[classIdx + 1]))
+          .on("change", function () {
+            onCustomBreakChange(classIdx + 1, this.value);
+          });
+      }
+    })(i);
+  }
+
+  // footer: +/- buttons and cancel/confirm
+  if (nClasses < 9) {
+    footerContainer.append("button")
+      .attr("class", "break-btn")
+      .attr("type", "button")
+      .text("+")
+      .on("click", addCustomBreak);
+  }
+  if (nClasses > 2) {
+    footerContainer.append("button")
+      .attr("class", "break-btn")
+      .attr("type", "button")
+      .text("\u2212")
+      .on("click", removeCustomBreak);
+  }
+
+  footerContainer.append("span").style("flex", "1");
+
+  footerContainer.append("button")
+    .attr("class", "break-btn-text break-btn-cancel")
+    .attr("type", "button")
+    .text(t('custom.cancel'))
+    .on("click", cancelCustomBreaks);
+
+  footerContainer.append("button")
+    .attr("class", "break-btn-text break-btn-confirm")
+    .attr("type", "button")
+    .text(t('custom.confirm'))
+    .on("click", confirmCustomBreaks);
+}
+
+function formatBreakValue(v) {
+  if (Number.isInteger(v)) return String(v);
+  return Number(v.toPrecision(6)).toString();
+}
+
+function onCustomBreakChange(index, rawValue) {
+  var parsed = parseFloat(rawValue);
+  if (isNaN(parsed) || !isFinite(parsed)) return;
+  var min = pendingCustomBreaks[0];
+  var max = pendingCustomBreaks[pendingCustomBreaks.length - 1];
+  if (parsed <= min) parsed = min + 0.001;
+  if (parsed >= max) parsed = max - 0.001;
+  pendingCustomBreaks[index] = parsed;
+  var inner = pendingCustomBreaks.slice(1, -1).sort(function (a, b) { return a - b; });
+  var deduped = [inner[0]];
+  for (var i = 1; i < inner.length; i++) {
+    if (inner[i] !== inner[i - 1]) deduped.push(inner[i]);
+  }
+  pendingCustomBreaks = [min].concat(deduped).concat([max]);
+  renderCustomBreakInputs();
+}
+
+function addCustomBreak() {
+  if (!pendingCustomBreaks || pendingCustomBreaks.length - 1 >= 9) return;
+  var maxGap = 0, maxIdx = 0;
+  for (var i = 0; i < pendingCustomBreaks.length - 1; i++) {
+    var gap = pendingCustomBreaks[i + 1] - pendingCustomBreaks[i];
+    if (gap > maxGap) {
+      maxGap = gap;
+      maxIdx = i;
+    }
+  }
+  var mid = (pendingCustomBreaks[maxIdx] + pendingCustomBreaks[maxIdx + 1]) / 2;
+  pendingCustomBreaks.splice(maxIdx + 1, 0, mid);
+  renderCustomBreakInputs();
+}
+
+function removeCustomBreak() {
+  if (!pendingCustomBreaks || pendingCustomBreaks.length - 1 <= 2) return;
+  var minGap = Infinity, minIdx = 1;
+  for (var i = 1; i < pendingCustomBreaks.length - 1; i++) {
+    var gap = pendingCustomBreaks[i + 1] - pendingCustomBreaks[i - 1];
+    if (gap < minGap) {
+      minGap = gap;
+      minIdx = i;
+    }
+  }
+  pendingCustomBreaks.splice(minIdx, 1);
+  renderCustomBreakInputs();
+}
+
+function confirmCustomBreaks() {
+  currentCustomBreaks = pendingCustomBreaks ? pendingCustomBreaks.slice() : null;
+  pendingCustomBreaks = null;
+  customBreaksSnapshot = null;
+  hideCustomBreaksUI();
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
+}
+
+function cancelCustomBreaks() {
+  currentCustomBreaks = customBreaksSnapshot;
+  pendingCustomBreaks = null;
+  customBreaksSnapshot = null;
+  if (!currentCustomBreaks) {
+    currentClassificationMethod = "quantile";
+    classMethodSelect.property("value", "quantile");
+    updateLegendCellsForMethod();
+  }
+  hideCustomBreaksUI();
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
 }
 
 applyButton.property("disabled", true);
@@ -685,6 +896,18 @@ function update() {
       .domain([legendMin, legendMax])
       .range(colorRange);
     currentBreaks = null;
+  } else if (currentClassificationMethod === "custom" && currentCustomBreaks && currentCustomBreaks.length >= 2) {
+    var updatedCustom = currentCustomBreaks.slice();
+    updatedCustom[0] = lo;
+    updatedCustom[updatedCustom.length - 1] = hi;
+    currentCustomBreaks = updatedCustom;
+    var innerBreaks = updatedCustom.slice(1, -1);
+    var actualClasses = updatedCustom.length - 1;
+    var colorRange = buildColorSamples(colorInterpolator, actualClasses);
+    color = d3.scaleThreshold()
+      .domain(innerBreaks)
+      .range(colorRange);
+    currentBreaks = updatedCustom;
   } else {
     var colorSteps = Math.max(1, currentLegendCells);
     var classResult = SettingClass.classify(values, {
@@ -699,6 +922,7 @@ function update() {
         .domain(classResult.innerBreaks)
         .range(colorRange);
       currentBreaks = classResult.breaks;
+      lastAutoBreaks = classResult.breaks.slice();
     } else {
       color = d3.scaleQuantize()
         .domain([lo, hi])
@@ -1603,7 +1827,8 @@ function saveProjectFile() {
       legendUnit: legendUnit,
       displayMode: currentMode,
       showPlaceLabels: placeNameToggle.property("checked"),
-      classificationMethod: currentClassificationMethod
+      classificationMethod: currentClassificationMethod,
+      customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
     }
   };
 
@@ -1725,7 +1950,8 @@ function saveProjectToCloud() {
       legendUnit: legendUnit,
       displayMode: currentMode,
       showPlaceLabels: placeNameToggle.property("checked"),
-      classificationMethod: currentClassificationMethod
+      classificationMethod: currentClassificationMethod,
+      customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
     }
   };
 
@@ -1807,6 +2033,13 @@ function restoreProjectState(projectData) {
   if (config.classificationMethod) {
     currentClassificationMethod = config.classificationMethod;
     classMethodSelect.property("value", currentClassificationMethod);
+    if (config.classificationMethod === "custom" && config.customBreaks) {
+      currentCustomBreaks = config.customBreaks;
+      showCustomBreaksUI();
+    } else {
+      currentCustomBreaks = null;
+      hideCustomBreaksUI();
+    }
     updateLegendCellsForMethod();
   }
 
