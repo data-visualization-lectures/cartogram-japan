@@ -71,7 +71,8 @@ var fields = [],
   customBreaksSnapshot = null,
   pendingCustomBreaks = null,
   areaByLabel = d3.map(),
-  perAreaEnabled = false;
+  perAreaEnabled = false,
+  colorReversed = false;
 
 var body = d3.select("body"),
   stat = d3.select("#status");
@@ -96,6 +97,7 @@ var fileInput = d3.select("#file-input"),
   classMethodSelect = d3.select("#classification-method"),
   placeNameToggle = d3.select("#toggle-place-names"),
   perAreaToggle = d3.select("#toggle-per-area"),
+  colorReversedToggle = d3.select("#toggle-color-reversed"),
   downloadDataButton = d3.select("#download-data-csv"),
   loadProjectButton = d3.select("#btn-load-project"),
   saveProjectButton = d3.select("#btn-save-project"),
@@ -258,12 +260,14 @@ function setDisplayMode(mode) {
       .property("value", legendUnit)
       .property("disabled", true);
     classMethodSelect.property("disabled", true);
+    colorReversedToggle.property("disabled", true);
   } else {
     legendUnit = legendUnitCache || "";
     legendUnitInput
       .property("value", legendUnit)
       .property("disabled", false);
     classMethodSelect.property("disabled", false);
+    colorReversedToggle.property("disabled", false);
   }
   initializeColorSchemeOptions();
   updateLegendCellsForMethod();
@@ -339,6 +343,13 @@ legendUnitInput.on("input", function () {
 
 placeNameToggle.on("change", function () {
   renderPlaceLabels();
+});
+
+colorReversedToggle.on("change", function () {
+  colorReversed = this.checked;
+  if (field && field.id !== "none") {
+    deferredUpdate();
+  }
 });
 
 perAreaToggle.on("change", function () {
@@ -958,6 +969,7 @@ function update() {
     var innerBreaks = updatedCustom.slice(1, -1);
     var actualClasses = updatedCustom.length - 1;
     var colorRange = buildColorSamples(colorInterpolator, actualClasses);
+    if (colorReversed) colorRange = colorRange.slice().reverse();
     color = d3.scaleThreshold()
       .domain(innerBreaks)
       .range(colorRange);
@@ -970,6 +982,7 @@ function update() {
     });
     var actualClasses = classResult.nClasses || colorSteps;
     var colorRange = buildColorSamples(colorInterpolator, actualClasses);
+    if (colorReversed) colorRange = colorRange.slice().reverse();
 
     if (classResult.breaks && classResult.breaks.length >= 2 && classResult.innerBreaks && classResult.innerBreaks.length > 0) {
       color = d3.scaleThreshold()
@@ -1881,6 +1894,7 @@ function saveProjectFile() {
       displayMode: currentMode,
       showPlaceLabels: placeNameToggle.property("checked"),
       perAreaEnabled: perAreaEnabled,
+      colorReversed: colorReversed,
       classificationMethod: currentClassificationMethod,
       customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
     }
@@ -2005,6 +2019,7 @@ function saveProjectToCloud() {
       displayMode: currentMode,
       showPlaceLabels: placeNameToggle.property("checked"),
       perAreaEnabled: perAreaEnabled,
+      colorReversed: colorReversed,
       classificationMethod: currentClassificationMethod,
       customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
     }
@@ -2088,6 +2103,12 @@ function restoreProjectState(projectData) {
   if (config.perAreaEnabled !== undefined) {
     perAreaEnabled = !!config.perAreaEnabled;
     perAreaToggle.property("checked", perAreaEnabled);
+  }
+
+  // 5.3. 色を反転 (Color Reversed)
+  if (config.colorReversed !== undefined) {
+    colorReversed = !!config.colorReversed;
+    colorReversedToggle.property("checked", colorReversed);
   }
 
   // 5.5. 分類方法 (Classification Method)
