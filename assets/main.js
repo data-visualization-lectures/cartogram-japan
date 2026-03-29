@@ -72,7 +72,9 @@ var fields = [],
   pendingCustomBreaks = null,
   areaByLabel = d3.map(),
   perAreaEnabled = false,
-  colorReversed = false;
+  colorReversed = false,
+  currentProjectId = null,
+  currentProjectName = null;
 
 var body = d3.select("body"),
   stat = d3.select("#status");
@@ -606,67 +608,6 @@ downloadSvgButton.on("click", downloadCurrentSvg);
 downloadPngButton.on("click", downloadCurrentPng);
 downloadDataButton.on("click", downloadCurrentDatasetCsv);
 
-// Cloud Load Button Logic
-loadProjectButton.on("click", function () {
-  var modalEl = document.getElementById('projectListModal');
-  var modal = new bootstrap.Modal(modalEl);
-  modal.show();
-
-  var listGroup = d3.select("#project-list-group");
-  listGroup.html('<p class="text-center text-muted p-4">' + t('modal.loading') + '</p>');
-
-  CloudApi.getProjects()
-    .then(function (projects) {
-      if (!projects || projects.length === 0) {
-        listGroup.html('<p class="text-center text-muted p-4">' + t('project.noProjects') + '</p>');
-        return;
-      }
-
-      listGroup.html("");
-
-      var items = listGroup.selectAll("button")
-        .data(projects)
-        .enter()
-        .append("button")
-        .attr("class", "list-group-item list-group-item-action d-flex justify-content-between align-items-center")
-        .attr("type", "button")
-        .on("click", function (d) {
-          if (!confirm(t('project.confirmLoad', { name: d.name }))) {
-            return;
-          }
-          var btn = d3.select(this);
-          btn.text(t('modal.loading')).property("disabled", true);
-
-          CloudApi.loadProject(d.id)
-            .then(function (projectData) {
-              restoreProjectState(projectData);
-              modal.hide();
-            })
-            .catch(function (err) {
-              console.error(err);
-              alert(t('project.loadFailed') + err.message);
-              btn.text(d.name).property("disabled", false);
-            });
-        });
-
-      items.append("div")
-        .html(function (d) {
-          var dateStr = d.updated_at ? new Date(d.updated_at).toLocaleString() : "";
-          return '<div class="fw-bold">' + (d.name || t('project.unnamed')) + '</div>' +
-            '<small class="text-muted">' + dateStr + '</small>';
-        });
-    })
-    .catch(function (err) {
-      console.error(err);
-      listGroup.html('<p class="text-center text-danger p-4">' + t('project.listFailed') + '<br>' + err.message + '</p>');
-    });
-});
-
-// Remove local file input listener as we moved to cloud
-projectFileInput.on("change", null);
-
-// Cloud Save Button Logic
-saveProjectButton.on("click", saveProjectToCloud);
 
 applyButton.on("click", applyPendingData);
 resetButton.on("click", resetToSampleData);
@@ -721,28 +662,22 @@ d3.json("data/japan.topojson", function (topo) {
     var params = new URLSearchParams(window.location.search);
     var projectId = params.get("project_id");
 
-    if (projectId && window.datavizSupabase) {
+    if (projectId) {
       console.log("Found project_id:", projectId);
 
-      // Poll for auth session ready
-      var checkAuthInterval = setInterval(function () {
-        if (!window.datavizSupabase || !window.datavizSupabase.auth) return;
-
-        window.datavizSupabase.auth.getSession().then(function (res) {
-          if (res.data.session) {
-            clearInterval(checkAuthInterval);
-            console.log("Session found, loading project...");
-            CloudApi.loadProject(projectId)
-              .then(restoreProjectState)
-              .catch(function (err) {
-                console.error("Auto load failed", err);
-                alert(t('project.autoLoadFailed') + err.message);
-              });
-          }
-        });
-
-        // Timeout after 10s? For now just keep trying till logged in or user gives up
-      }, 500);
+      // Wait for dataviz-tool-header to be ready
+      customElements.whenDefined('dataviz-tool-header').then(function () {
+        var header = document.querySelector('dataviz-tool-header');
+        if (header) {
+          console.log("Loading project from URL parameter...");
+          header.loadProject(projectId)
+            .then(restoreProjectState)
+            .catch(function (err) {
+              console.error("Auto load failed", err);
+              alert(t('project.autoLoadFailed') + err.message);
+            });
+        }
+      });
     }
   });
 });
@@ -1985,65 +1920,19 @@ function getThumbnailBlob() {
   });
 }
 
-// Toast Notification
-
-function saveProjectToCloud() {
-  if (!rawData || !rawData.length) {
-    alert(t('project.noData'));
-    return;
-  }
-
-  var defaultName = currentDatasetName || t('project.unnamed');
-  var fieldName = (field && field.name && field.id !== "none") ? field.name : t('filename.noField');
-  var modeName = currentMode === "ranking" ? t('ranking.label') : t('value.label');
-  var dateStr = d3.timeFormat("%y%m%d")(new Date());
-  var suggestedName = t('filename.japan') + "_" + fieldName + "_" + modeName + "_" + dateStr;
-
-  var projectName = prompt(t('project.promptName'), suggestedName);
-  if (projectName === null) return;
-
-  setButtonLoading(saveProjectButton, true);
-
-  var saveData = {
-    version: "1.0",
-    timestamp: Date.now(),
-    meta: {
-      datasetName: currentDatasetName
-    },
-    data: rawData,
-    config: {
-      fieldKey: field ? field.key : null,
-      colorSchemeId: currentColorScheme ? currentColorScheme.id : null,
-      legendCells: currentLegendCells,
-      legendUnit: legendUnit,
-      displayMode: currentMode,
-      showPlaceLabels: placeNameToggle.property("checked"),
-      perAreaEnabled: perAreaEnabled,
-      colorReversed: colorReversed,
-      classificationMethod: currentClassificationMethod,
-      customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
-    }
-  };
-
-  getThumbnailBlob().then(function (thumbnailBlob) {
-    CloudApi.saveProject(saveData, projectName, thumbnailBlob)
-      .then(function () {
-        var toolHeader = document.querySelector('dataviz-tool-header');
-        if (toolHeader) {
-          toolHeader.showMessage(t('project.saved', { name: projectName }), "success");
-        }
-        setButtonLoading(saveProjectButton, false);
-      })
-      .catch(function (err) {
-        console.error(err);
-        var toolHeader = document.querySelector('dataviz-tool-header');
-        if (toolHeader) {
-          toolHeader.showMessage(t('project.saveFailed') + err.message, "error");
-        }
-        setButtonLoading(saveProjectButton, false);
-      });
+function getThumbnailDataUri() {
+  return getThumbnailBlob().then(function (blob) {
+    if (!blob) return null;
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onloadend = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   });
 }
+
+// Toast Notification
 
 function restoreProjectState(projectData) {
   if (!projectData || !projectData.data) {
@@ -2138,67 +2027,66 @@ function restoreProjectState(projectData) {
 
 // --- Dataviz Tool Header Integration ---
 customElements.whenDefined('dataviz-tool-header').then(function () {
-  var toolHeader = document.querySelector('dataviz-tool-header');
-  if (toolHeader) {
-    var handleSave = function () {
-      saveProjectToCloud();
-    };
+  var header = document.querySelector('dataviz-tool-header');
+  if (header) {
     var handleLoad = function () {
-      var modalEl = document.getElementById('projectListModal');
-      var modal = new bootstrap.Modal(modalEl);
-      modal.show();
-
-      var listGroup = d3.select("#project-list-group");
-      listGroup.html('<p class="text-center text-muted p-4">' + t('modal.loading') + '</p>');
-
-      CloudApi.getProjects()
-        .then(function (projects) {
-          if (!projects || projects.length === 0) {
-            listGroup.html('<p class="text-center text-muted p-4">' + t('project.noProjects') + '</p>');
-            return;
-          }
-
-          listGroup.html("");
-
-          var items = listGroup.selectAll("button")
-            .data(projects)
-            .enter()
-            .append("button")
-            .attr("class", "list-group-item list-group-item-action d-flex justify-content-between align-items-center")
-            .attr("type", "button")
-            .on("click", function (d) {
-              if (!confirm(t('project.confirmLoad', { name: d.name }))) {
-                return;
-              }
-              var btn = d3.select(this);
-              btn.text(t('modal.loading')).property("disabled", true);
-
-              CloudApi.loadProject(d.id)
-                .then(function (projectData) {
-                  restoreProjectState(projectData);
-                  modal.hide();
-                })
-                .catch(function (err) {
-                  console.error(err);
-                  alert(t('project.loadFailed') + err.message);
-                  btn.text(d.name).property("disabled", false);
-                });
-            });
-
-          items.append("div")
-            .html(function (d) {
-              var dateStr = d.updated_at ? new Date(d.updated_at).toLocaleString() : "";
-              return '<div class="fw-bold">' + (d.name || t('project.unnamed')) + '</div>' +
-                '<small class="text-muted">' + dateStr + '</small>';
-            });
-        })
-        .catch(function (err) {
-          console.error(err);
-          listGroup.html('<p class="text-center text-danger p-4">' + t('project.listFailed') + '<br>' + err.message + '</p>');
-        });
+      header.showLoadModal();
     };
 
-    toolHeader.setConfig({
+    var handleSave = function () {
+      if (!rawData || !rawData.length) {
+        header.showMessage(t('project.noData'), 'error');
+        return;
+      }
+      var fieldName = (field && field.name && field.id !== "none") ? field.name : t('filename.noField');
+      var modeName = currentMode === "ranking" ? t('ranking.label') : t('value.label');
+      var dateStr = d3.timeFormat("%y%m%d")(new Date());
+      var suggestedName = currentProjectName ||
+        (t('filename.japan') + "_" + fieldName + "_" + modeName + "_" + dateStr);
+
+      var saveData = {
+        version: "1.0",
+        timestamp: Date.now(),
+        meta: {
+          datasetName: currentDatasetName
+        },
+        data: rawData,
+        config: {
+          fieldKey: field ? field.key : null,
+          colorSchemeId: currentColorScheme ? currentColorScheme.id : null,
+          legendCells: currentLegendCells,
+          legendUnit: legendUnit,
+          displayMode: currentMode,
+          showPlaceLabels: placeNameToggle.property("checked"),
+          perAreaEnabled: perAreaEnabled,
+          colorReversed: colorReversed,
+          classificationMethod: currentClassificationMethod,
+          customBreaks: currentClassificationMethod === "custom" ? currentCustomBreaks : null
+        }
+      };
+
+      getThumbnailDataUri().then(function (thumbnailDataUri) {
+        header.showSaveModal({
+          name: suggestedName,
+          data: saveData,
+          thumbnailDataUri: thumbnailDataUri,
+          existingProjectId: currentProjectId
+        });
+      });
+    };
+
+    header.setProjectConfig({
+      appName: 'cartogram-japan',
+      onProjectLoad: function (projectData) {
+        restoreProjectState(projectData);
+      },
+      onProjectSave: function (meta) {
+        currentProjectId = meta.id;
+        currentProjectName = meta.name;
+      }
+    });
+
+    header.setConfig({
       logo: {
         type: 'text',
         text: t('header.title'),
