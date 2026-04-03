@@ -2099,5 +2099,18 @@ customElements.whenDefined('dataviz-tool-header').then(function () {
         { label: t('header.aboutClassification'), action: function() { window.open('https://classification.explorable-explanations.com/', '_blank'); }, align: 'right' }
       ]
     });
+
+    // Sample data picker integration
+    header.setSampleConfig({
+      toolId: 'cartogram-japan',
+      onSampleSelect: function (detail) {
+        fetch(detail.url)
+          .then(function (res) { return res.text(); })
+          .then(function (text) {
+            var parsed = d3.csvParse(text.trim());
+            loadDataset(parsed, { name: detail.name });
+          });
+      }
+    });
   }
 });
