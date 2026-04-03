@@ -658,8 +658,18 @@ d3.json("data/japan.topojson", function (topo) {
     });
     init();
 
-    // Check for project_id URL parameter
+    // Check for data_url or project_id URL parameter
     var params = new URLSearchParams(window.location.search);
+    var dataUrl = params.get("data_url");
+    if (dataUrl) {
+      fetch(dataUrl)
+        .then(function (res) { return res.text(); })
+        .then(function (text) {
+          var parsed = d3.csvParse(text.trim());
+          loadDataset(parsed, { name: dataUrl.split("/").pop().replace(/\.[^.]+$/, "") });
+        });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     var projectId = params.get("project_id");
 
     if (projectId) {
